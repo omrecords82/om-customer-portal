@@ -43,20 +43,19 @@
 | **Wave H** | **BLOCKED** until all entry gates pass; then Baptism → Marriage → Funeral |
 | **Wave K** | **GO/NO-GO CRITERIA DEFINED** — live operational parity required; mocks do not count |
 | **OMD** | Keep **`PENDING_RECONCILIATION`**; do not invent OMD IDs; stable `PORTAL-WAVE-*` slugs OK |
-| **Blueprint visual QA** | **OPERATOR SIGN-OFF REQUIRED** before Wave BP acceptance |
+| **Blueprint visual QA** | **APPROVED** 2026-07-19 (operator sign-off recorded; see §BP Visual QA) |
 | **Assets library** | **DEFERRED PRIORITY** behind core live workflows |
 
 **Current execution priority (operator):**
 
-1. Blueprint visual QA (operator sign-off)  
-2. Live authentication pilot (allowlisted tenants)  
-3. Live OCR API integration  
-4. Records deep-link compatibility  
-5. Canonical records schema and Wave H editors (after gates)  
-6. Cemetery MVP for enabled churches  
-7. Live certificate workflows  
-8. Assets library (raise only if an active customer depends on it daily)  
-9. Interactive reports  
+1. Live authentication pilot (allowlisted tenants)  
+2. Live OCR API integration  
+3. Records deep-link compatibility  
+4. Canonical records schema and Wave H editors (after gates)  
+5. Cemetery MVP for enabled churches  
+6. Live certificate workflows  
+7. Assets library (raise only if an active customer depends on it daily)  
+8. Interactive reports  
 
 ---
 
@@ -304,19 +303,21 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 
 **Shared blueprint DoD (all three):**
 
-- [x] Behavior and information architecture match the blueprint preview (phases/steps, primary actions, empty/error/success states) — **implementation productized**; acceptance still needs visual QA
+- [x] Behavior and information architecture match the blueprint preview (phases/steps, primary actions, empty/error/success states) — **implementation productized**; visual QA **APPROVED** 2026-07-19
 - [x] Routed under Customer Portal (`/ocr/mobile`, `/ocr`, `/onboarding` under `/portal2` basename)
 - [x] Zero Tailwind / zero blueprint `styles/tailwind.css` imports in Customer Portal
 - [x] Mantine owns layout; `@om/ui` (or allowlisted RAC) owns buttons, fields, menus, dialogs, tabs, etc.
 - [x] Light + dark schemes work via existing `OmThemeSync`
 - [x] Keyboard / screen-reader basics (named icon buttons, dialog titles, focus order through wizard steps) — baseline; continue hardening
 - [x] Vitest coverage for step-state machines / critical transitions (onboard + OCR mobile)
-- [ ] **Operator visual QA sign-off** (required — see §BP Visual QA and `docs/BLUEPRINT-VISUAL-QA.md`). Implementation may stay checked; **Wave BP is not fully accepted** until sign-off is recorded.
+- [x] **Operator visual QA sign-off** — **APPROVED** 2026-07-19 (see §BP Visual QA and `docs/BLUEPRINT-VISUAL-QA.md`). Wave BP UX productization **accepted**; live OCR APIs remain open for cutover DoD.
 - [ ] Legacy `/blueprints/*` routes remain reference-only until Wave K (optional redirect later)
 
 #### BP Visual QA — operator sign-off (required)
 
 **Decision:** Blueprint visual QA requires **operator sign-off**. Not strict pixel matching.
+
+**Status:** **APPROVED** 2026-07-19 — operator compared OCR Mobile, OCR Desktop, and OM Onboard under `/portal2` vs blueprint previews. Evidence: `docs/BLUEPRINT-VISUAL-QA.md`. Work refs: `PORTAL-WAVE-BP-OCR-MOBILE`, `PORTAL-WAVE-BP-OCR-DESKTOP`, `PORTAL-WAVE-BP-ONBOARD`. OMBC: `OMBC-20260718-165445-BD189C`.
 
 **Required screenshot coverage:**
 
@@ -353,8 +354,8 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Becomes the primary **authenticated** in-portal onboarding surface (Wave I; **not** public enroll)
 
 **Dependencies:** Wave A (harden); Wave B for live APIs; GAP-FORM-ALERT / temporary menu adapters as needed.  
-**Blockers:** operator visual QA open for BP acceptance; live OCR APIs open for cutover DoD.  
-**Priority:** elevated for UX source of truth; **execution priority #1 = visual QA**, then live OCR APIs.
+**Blockers:** operator visual QA **recorded APPROVED 2026-07-19**; live OCR APIs remain open for cutover DoD (do not treat live OCR as complete).  
+**Priority:** Wave BP UX accepted; next elevated item = live OCR API integration (see execution priority).
 
 ---
 
@@ -410,7 +411,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
-**Blockers:** Live OCR + operator BP visual QA for OCR cutover DoD; assets do **not** block other waves.
+**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves.
 
 ---
 
@@ -602,7 +603,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 - [ ] **a11y** — keyboard, focus, named icon buttons, AlertDialog for destructive; toast announcements when GAP-TOAST ships
 - [ ] **Responsive** — Mantine breakpoints; no fixed wide traps on primary staff flows
-- [ ] **Visual QA** — before/after or hub screenshots for touched surfaces; BP operator sign-off for blueprints
+- [ ] **Visual QA** — before/after or hub screenshots for touched surfaces; BP operator sign-off for blueprints (**APPROVED** 2026-07-19)
 - [ ] **Branding** — verify at least one non–Church-46 tenant when chrome/tokens change (required for Wave K evidence)
 - [ ] **i18n** — if/when wired, keep keys; no accidental English hardcoding regressions
 - [ ] **Tests** — Vitest for new logic; smoke for auth + hub + one deep feature per wave; deep-link tests for records
@@ -617,7 +618,7 @@ All must be true for **global** readiness (Wave K). Pilot live auth may proceed 
 
 1. [ ] Customer Portal is the **supported** parish end-user UI for **MVP scope** defined in Wave K (live auth, hub, records lists + baptism/marriage/funeral editors, **live** OCR mobile + desktop + **persisted** onboard, certificates where used, cemetery for enabled churches, help). **Public enroll is out of scope.** Liturgical calendar / assets / advanced reports do not block if marked post-MVP.
 2. [ ] Interactive controls on that surface are `@om/ui` (or promoted `@om/forms` / domain packages); Mantine is shell-only; RAC only behind **documented temporary waivers** or closed gaps; **no Tailwind blueprint ports**.
-2b. [ ] Blueprints `om-ocr-mobile`, `om-ocr-desktop`, and `om-onboard` are implemented **and** operator visual QA is signed off (Wave BP).
+2b. [x] Blueprints `om-ocr-mobile`, `om-ocr-desktop`, and `om-onboard` are implemented **and** operator visual QA is signed off (Wave BP) — **APPROVED** 2026-07-19. Live OCR APIs for cutover MVP remain separate (Wave K / live OCR items).
 3. [ ] No prohibited UI libraries in Customer Portal (including no local toast / Sonner / Mantine Notifications).
 4. [ ] Tokens resolve via `@om/tokens` for shared semantics; remaining portal-local values documented with package follow-ups (full brand cleanup may be post-MVP).
 5. [ ] Login cutover complete for target tenants per Wave K evidence; legacy `/portal` end-user SPA frozen, redirected, retired, or explicitly deferred with disposition.
@@ -653,7 +654,7 @@ All must be true for **global** readiness (Wave K). Pilot live auth may proceed 
 2. **Temporary shell RAC adapters** (approved) while Codex closes GAP-LINK-* / GAP-MENU-RICH — do not block portal work  
 3. **GAP-TOAST + GAP-FORM-ALERT** (Codex) — decision settled for toast; implement `@om/ui/toast` + FormAlert  
 4. **Wave B** — Auth & session; **pilot live enablement** for allowlisted tenants  
-5. **Wave BP visual QA** — operator sign-off, then **live OCR API** integration  
+5. **Wave BP visual QA** — operator sign-off **APPROVED** 2026-07-19; continue **live OCR API** integration  
 6. **Wave C** — Account & parish settings → live persistence  
 7. **Wave D** — Hub depth with live/honest empty states  
 8. **Wave E** — Records chrome + **deep-link implementation/tests**  
