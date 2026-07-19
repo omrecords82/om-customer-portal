@@ -42,27 +42,29 @@ Copy one block per enabled tenant. Attach screenshots or log excerpts in your op
 
 ### Tenant: `om_church_46` · Church **46**
 
-> **Live-auth deploy (2026-07-19):** `./scripts/deploy-static.sh` with build-time `VITE_PORTAL_BASE_PATH=/portal2`, `VITE_PORTAL_AUTH_MODE=live`, and `VITE_PORTAL_REQUIRE_AUTH=true` (one-shot; repo `.env.example` remains `mock` / `false`). Per-row evidence in the table below **still requires** operator login and manual checks — do not mark rows complete until verified.
+> **Live-auth deploy (2026-07-19):** `./scripts/deploy-static.sh` with build-time `VITE_PORTAL_BASE_PATH=/portal2`, `VITE_PORTAL_AUTH_MODE=live`, and `VITE_PORTAL_REQUIRE_AUTH=true` (one-shot; repo `.env.example` remains `mock` / `false`).
 >
-> **Records list investigation (2026-07-19):** `frjames@ssppoc.org` → `users.church_id=46`. Prod tenant DB holds **626** baptism, **223** marriage, **447** funeral rows (all `church_id=46`). OM list APIs return data when authenticated with church context. Empty `/portal2/records` was traced to portal session bootstrap (records fetch before auth ready; `church_id` string not coerced to numeric `churchId`) — fixed in portal + OIDC redirect to `/portal2/auth/oidc-complete` when `next` starts with `/portal2`.
+> **Records list fix (2026-07-19):** Empty `/portal2/records` traced to portal session bootstrap (records fetch before auth ready; `church_id` string not coerced to numeric `churchId`) — fixed portal `b96950e`, OMAI PR #314 / `d5d0a11` (OIDC redirect to `/portal2/auth/oidc-complete` when `next` starts with `/portal2`).
+>
+> **Operator confirmed (2026-07-19):** `frjames@ssppoc.org` on `/portal2` — login OK, `/api/me` + session `churchId` **46**, live records list **1296** combined rows (626 baptism + 223 marriage + 447 funeral). Remaining rows below still require manual verification.
 
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |
-| Login | [ ] | | | OK for `frjames@ssppoc.org`; OIDC handoff now returns to `/portal2/auth/oidc-complete` when `next=/portal2/...` |
+| Login | [x] | operator | 2026-07-19 | `frjames@ssppoc.org`; OIDC handoff returns to `/portal2/auth/oidc-complete` when `next=/portal2/...` |
 | Logout | [ ] | | | |
 | Expired-session handling | [ ] | | | |
 | Unauthorized (`/auth/unauthorized`) | [ ] | | | |
-| User context (`/api/me`) | [ ] | | | Account diagnostics: user id **2**, role **priest** |
-| Church context (session `churchId` > 0) | [ ] | | | Expect **46** in Account diagnostics |
+| User context (`/api/me`) | [x] | operator | 2026-07-19 | Account diagnostics: user id **2**, role **priest** |
+| Church context (session `churchId` > 0) | [x] | operator | 2026-07-19 | Session `churchId` **46** confirmed (Account diagnostics) |
 | Parish settings (`GET /api/my/church-settings`) | [ ] | | | Parish chrome source = live |
 | Role enforcement (nav + gated pages) | [ ] | | | |
 | CSRF (mutating API smoke test) | [ ] | | | e.g. profile save |
 | Nested route `next=` round-trip | [ ] | | | `/records?type=baptism` |
-| **Records list (live)** | [ ] | | | `/portal2/records` — expect **1296** combined (626+223+447) or per-type filters |
+| **Records list (live)** | [x] | operator | 2026-07-19 | `/portal2/records` — **1296** combined (626+223+447) for church 46 |
 | Production error logging | [ ] | | | optional 403/404 observe |
 | Rollback rehearsed | [ ] | | | mock + redeploy |
 
-**Wave B checklist item:** `[ ] Pilot tenant enablement evidence` — close only when this table is complete for every allowlisted tenant.
+**Wave B checklist item:** `[ ] Pilot tenant enablement evidence` — **partial evidence** (login + church context + live records list confirmed 2026-07-19); close only when every row in this table is complete for every allowlisted tenant.
 
 ## Build / runtime flags
 
@@ -76,12 +78,12 @@ Apply only for internal users and **explicitly allowlisted** pilot tenants. Do n
 
 ## Pre-enable verification (per tenant)
 
-- [ ] Login
+- [x] Login — operator confirmed `frjames@ssppoc.org` 2026-07-19
 - [ ] Logout
 - [ ] Expired-session handling
 - [ ] Unauthorized handling (`/auth/unauthorized`)
-- [ ] User context loaded
-- [ ] Church context loaded
+- [x] User context loaded — `/api/me`; user id **2**, role **priest** (2026-07-19)
+- [x] Church context loaded — session `churchId` **46** (2026-07-19)
 - [ ] Role enforcement
 - [ ] CSRF behavior
 - [ ] Direct nested-route access (e.g. `/portal2/records?type=baptism`) — unauthenticated hit must land on `/auth/login?next=` with the full path+query encoded; after login, `getSafePortalNext` restores `/records?type=baptism` and records deep-link parse still applies

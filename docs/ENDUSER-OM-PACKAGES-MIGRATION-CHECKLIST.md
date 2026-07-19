@@ -48,7 +48,7 @@
 
 **Current execution priority (operator):**
 
-1. Live authentication pilot — sole allowlisted tenant: **`om_church_46`** (enablement evidence still open)  
+1. Live authentication pilot — sole allowlisted tenant: **`om_church_46`** (partial enablement evidence: login + church context + live records list confirmed 2026-07-19)  
 2. Live OCR API integration  
 3. Records deep-link compatibility  
 4. Canonical records schema and Wave H editors (after gates)  
@@ -232,7 +232,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Post-login routing policy recorded: pilots stay on `/portal2`; **do not** globally flip legacy `/portal` (Wave K)
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
 - [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
-- [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) — **sole allowlisted tenant:** `om_church_46` (slug recorded 2026-07-19; numeric `church_id` TBD from live session diagnostics). Login/logout/session/role/rollback evidence **not yet complete** — operator scaffolding: `docs/AUTH-PILOT-CHECKLIST.md`, `pnpm validate:auth-pilot`, Account session diagnostics when `AUTH_MODE=live`
+- [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) — **sole allowlisted tenant:** `om_church_46` (slug + numeric `church_id` **46** confirmed 2026-07-19). **Partial evidence:** login OK, `/api/me` + session `churchId` 46, live records list **1296** rows (`frjames@ssppoc.org` on `/portal2`; fix refs portal `b96950e`, OMAI PR #314 / `d5d0a11`). Logout, expired session, unauthorized, role enforcement, CSRF, nested `next=` deep link, error logging, rollback **still open** — `docs/AUTH-PILOT-CHECKLIST.md`, `pnpm validate:auth-pilot`
 - [x] Account password change dialog + profile surface exist; **sessions list + revoke** wired on `AccountPage` — evidence: GET/DELETE `/api/user/sessions`, POST `/api/user/sessions/revoke-others` via `settingsApi.ts` when `AUTH_MODE=live`; preview keeps honest mock sessions
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events
 - [x] SPA shell links via **approved temporary** basename-aware RAC adapters (see §2.2 waivers) until GAP-LINK-* closes — document in `docs/om-package-integration.md`; do not invent fake `@om/ui` wrappers
@@ -472,7 +472,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 #### Wave H entry gates (all must pass before any editor work)
 
-- [ ] Live authentication and church context work for pilot users — capability shipped (Wave B); **per-tenant enablement evidence still open** for sole pilot `om_church_46` (`docs/AUTH-PILOT-CHECKLIST.md`)
+- [ ] Live authentication and church context work for pilot users — capability shipped (Wave B); **partial enablement evidence** for sole pilot `om_church_46`: login + `/api/me` + session `churchId` 46 confirmed 2026-07-19; logout/session/role/rollback still open (`docs/AUTH-PILOT-CHECKLIST.md`)
 - [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`. **Editors still blocked.**
 - [x] Wave E records deep-link compatibility is implemented and tested
 - [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts` — **packages repo gap**; see `docs/WAVE-H-RECORDS-GATES.md` §4
