@@ -1,12 +1,12 @@
 import { Box, Group, Title, Text, Divider } from "@mantine/core";
 import type { ReactNode } from "react";
 
-interface PageLayoutProps {
+type PageLayoutProps = {
   title: string;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
-}
+};
 
 export function PageLayout({ title, description, action, children }: PageLayoutProps) {
   return (

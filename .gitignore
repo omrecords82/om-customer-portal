@@ -21,6 +21,10 @@ coverage/
 playwright-report/
 test-results/
 
+# TypeScript
+*.tsbuildinfo
+node_modules/.tmp/
+
 # Editors and operating systems
 .vscode/
 .idea/

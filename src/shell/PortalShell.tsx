@@ -21,7 +21,12 @@ export function PortalShell() {
   }
 
   return (
-    <AriaRouterProvider navigate={navigate} useHref={useHref}>
+    <AriaRouterProvider
+      navigate={(to, options) => {
+        void navigate(to, options);
+      }}
+      useHref={useHref}
+    >
       <AppShell
         header={{ height: 52 }}
         navbar={{

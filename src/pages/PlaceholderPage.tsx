@@ -2,11 +2,11 @@ import { Box, Text, Title } from "@mantine/core";
 import type { ElementType } from "react";
 import { PageLayout } from "../components/PageLayout";
 
-interface PlaceholderPageProps {
+type PlaceholderPageProps = {
   title: string;
   description: string;
   icon: ElementType;
-}
+};
 
 export function PlaceholderPage({ title, description, icon: Icon }: PlaceholderPageProps) {
   return (

@@ -12,6 +12,9 @@ export function normalizePortalBasePath(value: string): string {
   return withLeadingSlash.replace(/\/+$/, "");
 }
 
-export const portalBasePath = normalizePortalBasePath(
-  import.meta.env.VITE_PORTAL_BASE_PATH || "/portal2",
-);
+function readPortalBasePathEnv(): string {
+  const value = import.meta.env.VITE_PORTAL_BASE_PATH;
+  return typeof value === "string" ? value : "/portal";
+}
+
+export const portalBasePath = normalizePortalBasePath(readPortalBasePathEnv());

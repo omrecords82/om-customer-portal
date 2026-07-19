@@ -24,10 +24,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/account":      "My Account",
 };
 
-interface TopHeaderProps {
+type TopHeaderProps = {
   onMobileToggle: () => void;
   onDesktopToggle: () => void;
-}
+};
 
 export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
@@ -130,7 +130,9 @@ export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
               <Separator className="om-menu-sep" />
               <MenuItem
                 className="om-menu-item om-menu-item--danger"
-                onAction={() => {}}
+                onAction={() => {
+                  return undefined;
+                }}
               >
                 <LogOut size={14} aria-hidden="true" />
                 Sign out

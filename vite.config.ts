@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
-import { defineConfig, loadEnv } from "vite";
+import { loadEnv } from "vite";
+import { defineConfig } from "vitest/config";
 
 function normalizeBasePath(value: string): string {
   const trimmed = value.trim();
@@ -37,7 +38,7 @@ function figmaAssetResolver() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const basePath = normalizeBasePath(
-    env.VITE_PORTAL_BASE_PATH || "/portal2",
+    env.VITE_PORTAL_BASE_PATH ?? "/portal",
   );
 
   return {
@@ -55,5 +56,10 @@ export default defineConfig(({ mode }) => {
     },
 
     assetsInclude: ["**/*.svg", "**/*.csv"],
+
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    },
   };
 });

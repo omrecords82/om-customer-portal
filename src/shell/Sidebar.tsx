@@ -41,9 +41,9 @@ function OrthodoxCross() {
   );
 }
 
-interface SidebarProps {
+type SidebarProps = {
   onNavClick: () => void;
-}
+};
 
 export function Sidebar({ onNavClick }: SidebarProps) {
   const location = useLocation();
