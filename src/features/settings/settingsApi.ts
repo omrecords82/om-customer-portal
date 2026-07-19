@@ -6,8 +6,10 @@ import type {
   ParishProfile,
   ParishUser,
   ParishUserStatus,
+  UserSession,
+  UserSessionStatus,
 } from "./settingsData";
-import { DEFAULT_PARISH, MOCK_PARISH_USERS } from "./settingsData";
+import { DEFAULT_PARISH, MOCK_PARISH_USERS, MOCK_USER_SESSIONS } from "./settingsData";
 
 /**
  * Wave C settings live client.
@@ -366,6 +368,254 @@ export function parseChurchUsersResponse(payload: unknown): ParishUser[] {
   return [];
 }
 
+function asSessionStatus(value: unknown): UserSessionStatus {
+  if (value === "revoked" || value === "expired") return value;
+  return "active";
+}
+
+function sessionRowToUserSession(row: SessionApiRow): UserSession | null {
+  const rawId = row.id ?? row.session_id;
+  if (rawId == null) return null;
+  if (typeof rawId !== "string" && typeof rawId !== "number") return null;
+  const id = String(rawId);
+  if (!id) return null;
+  const createdAt = asString(row.created_at);
+  const expiresAt = asString(row.expires_at);
+  if (!createdAt || !expiresAt) return null;
+
+  return {
+    id,
+    isCurrent: row.is_current === true || row.is_current === 1,
+    status: asSessionStatus(row.status),
+    ipAddress: row.ip_address == null ? null : asString(row.ip_address),
+    userAgent: row.user_agent == null ? null : asString(row.user_agent),
+    createdAt,
+    expiresAt,
+  };
+}
+
+/** Normalize GET /api/user/sessions response shapes. */
+export function parseUserSessionsResponse(payload: unknown): UserSession[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  if (root.success === false) return [];
+
+  const data = root.data;
+  if (data && typeof data === "object") {
+    const sessions = (data as Record<string, unknown>).sessions;
+    if (Array.isArray(sessions)) {
+      return sessions
+        .map((row) => sessionRowToUserSession(row as SessionApiRow))
+        .filter((session): session is UserSession => session != null);
+    }
+  }
+
+  const direct = root.sessions;
+  if (Array.isArray(direct)) {
+    return direct
+      .map((row) => sessionRowToUserSession(row as SessionApiRow))
+      .filter((session): session is UserSession => session != null);
+  }
+
+  return [];
+}
+
+export type ParsedUserAgent = {
+  readonly browser: string;
+  readonly os: string;
+  readonly deviceType: "desktop" | "mobile" | "tablet" | "cli" | "unknown";
+};
+
+/** Best-effort user-agent parsing for session labels. */
+export function parseSessionUserAgent(ua: string | null): ParsedUserAgent {
+  if (!ua) return { browser: "Unknown", os: "Unknown", deviceType: "unknown" };
+
+  if (/^curl\//i.test(ua)) return { browser: "curl (CLI)", os: "Command Line", deviceType: "cli" };
+  if (/^python/i.test(ua)) return { browser: "Python HTTP", os: "Command Line", deviceType: "cli" };
+  if (/^node/i.test(ua)) return { browser: "Node.js", os: "Command Line", deviceType: "cli" };
+  if (/^wget/i.test(ua)) return { browser: "wget (CLI)", os: "Command Line", deviceType: "cli" };
+
+  let browser = "Unknown Browser";
+  if (/Edg\//i.test(ua)) browser = "Microsoft Edge";
+  else if (/OPR\//i.test(ua) || /Opera/i.test(ua)) browser = "Opera";
+  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = "Google Chrome";
+  else if (/Firefox\//i.test(ua)) browser = "Firefox";
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = "Safari";
+  if (/HeadlessChrome/i.test(ua)) browser = "Headless Chrome";
+
+  let os = "Unknown OS";
+  if (/Windows NT 10/i.test(ua) || /Windows/i.test(ua)) os = "Windows";
+  else if (/Mac OS X/i.test(ua)) os = "macOS";
+  else if (/Android/i.test(ua)) os = "Android";
+  else if (/iPhone|iPad/i.test(ua)) os = "iOS";
+  else if (/Linux/i.test(ua)) os = "Linux";
+  else if (/CrOS/i.test(ua)) os = "ChromeOS";
+
+  let deviceType: ParsedUserAgent["deviceType"] = "desktop";
+  if (/Mobile/i.test(ua) || /Android.*Mobile/i.test(ua) || /iPhone/i.test(ua)) {
+    deviceType = "mobile";
+  } else if (/iPad|Tablet|Android(?!.*Mobile)/i.test(ua)) {
+    deviceType = "tablet";
+  }
+
+  return { browser, os, deviceType };
+}
+
+export function formatSessionLabel(session: Pick<UserSession, "userAgent">): string {
+  const { browser, os } = parseSessionUserAgent(session.userAgent);
+  return `${browser} on ${os}`;
+}
+
+export function maskSessionIp(ip: string | null): string {
+  if (!ip) return "Unknown";
+  if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip === "127.0.0.1" || ip === "::1") {
+    return ip;
+  }
+  const parts = ip.split(".");
+  if (parts.length === 4) {
+    const [a, b, c] = parts;
+    if (a && b && c) return `${a}.${b}.${c}.***`;
+  }
+  return ip;
+}
+
+export function formatSessionRelativeTime(dateStr: string, nowMs = Date.now()): string {
+  const diffMs = nowMs - new Date(dateStr).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${String(diffMins)}m ago`;
+  if (diffHours < 24) return `${String(diffHours)}h ago`;
+  if (diffDays < 7) return `${String(diffDays)}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function sessionAuthHeaders(): HeadersInit {
+  const headers = new Headers();
+  const refresh = localStorage.getItem("refresh_token");
+  if (refresh) headers.set("x-refresh-token", refresh);
+  return headers;
+}
+
+/** GET /api/user/sessions — list active login sessions for the current user. */
+export async function fetchUserSessions(): Promise<FetchUserSessionsResult> {
+  if (authMode !== "live") {
+    return { ok: true, source: "preview", sessions: MOCK_USER_SESSIONS };
+  }
+
+  try {
+    const res = await apiFetch("/api/user/sessions", {
+      method: "GET",
+      headers: sessionAuthHeaders(),
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(payload, `Sessions unavailable (${String(res.status)}).`),
+        status: res.status,
+      };
+    }
+    return {
+      ok: true,
+      source: "live",
+      sessions: parseUserSessionsResponse(payload),
+    };
+  } catch {
+    return { ok: false, message: "Network error loading sessions.", status: 0 };
+  }
+}
+
+/** DELETE /api/user/sessions/:id — revoke one non-current session. */
+export async function revokeUserSession(sessionId: string): Promise<RevokeUserSessionResult> {
+  if (authMode !== "live") {
+    return {
+      ok: true,
+      source: "preview",
+      message: "Session revoked locally (preview mode).",
+    };
+  }
+
+  try {
+    const res = await apiFetch(`/api/user/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: sessionAuthHeaders(),
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(payload, `Could not revoke session (${String(res.status)}).`),
+        status: res.status,
+      };
+    }
+    return {
+      ok: true,
+      source: "live",
+      message: extractApiMessage(payload, "Session revoked successfully."),
+    };
+  } catch {
+    return { ok: false, message: "Network error revoking session.", status: 0 };
+  }
+}
+
+/** POST /api/user/sessions/revoke-others — sign out all devices except this one. */
+export async function revokeOtherUserSessions(): Promise<RevokeOtherSessionsResult> {
+  if (authMode !== "live") {
+    return {
+      ok: true,
+      source: "preview",
+      message: "Other sessions revoked locally (preview mode).",
+      revokedCount: MOCK_USER_SESSIONS.filter((session) => !session.isCurrent).length,
+    };
+  }
+
+  try {
+    const res = await apiFetch("/api/user/sessions/revoke-others", {
+      method: "POST",
+      headers: sessionAuthHeaders(),
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(
+          payload,
+          `Could not revoke other sessions (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+
+    let revokedCount = 0;
+    if (payload && typeof payload === "object") {
+      const root = payload as Record<string, unknown>;
+      const data = root.data;
+      if (data && typeof data === "object") {
+        const nested = (data as Record<string, unknown>).revoked_count;
+        if (typeof nested === "number") revokedCount = nested;
+      }
+      const direct = root.revoked_count;
+      if (typeof direct === "number") revokedCount = direct;
+    }
+
+    return {
+      ok: true,
+      source: "live",
+      message: extractApiMessage(payload, "Other sessions revoked."),
+      revokedCount,
+    };
+  } catch {
+    return { ok: false, message: "Network error revoking other sessions.", status: 0 };
+  }
+}
+
 export type FetchParishUsersResult =
   | {
       readonly ok: true;
@@ -378,6 +628,34 @@ export type FetchParishUsersResult =
 export type UnlockParishUserResult =
   | { readonly ok: true; readonly source: "preview" | "live" }
   | { readonly ok: false; readonly message: string; readonly status: number };
+
+export type FetchUserSessionsResult =
+  | { readonly ok: true; readonly source: "preview" | "live"; readonly sessions: readonly UserSession[] }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+export type RevokeUserSessionResult =
+  | { readonly ok: true; readonly source: "preview" | "live"; readonly message: string }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+export type RevokeOtherSessionsResult =
+  | {
+      readonly ok: true;
+      readonly source: "preview" | "live";
+      readonly message: string;
+      readonly revokedCount: number;
+    }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+type SessionApiRow = {
+  readonly id?: unknown;
+  readonly session_id?: unknown;
+  readonly is_current?: unknown;
+  readonly status?: unknown;
+  readonly ip_address?: unknown;
+  readonly user_agent?: unknown;
+  readonly created_at?: unknown;
+  readonly expires_at?: unknown;
+};
 
 /** GET /api/admin/church-users/:churchId — parish staff scoped list. */
 export async function fetchParishUsers(

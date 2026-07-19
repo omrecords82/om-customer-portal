@@ -1,9 +1,9 @@
-import { Card, List, Stack, Text, Title } from "@mantine/core";
+import { Badge, Card, Divider, Group, List, Stack, Text, Title } from "@mantine/core";
 import { Button } from "@om/ui/button";
 import { Switch } from "@om/ui/switch";
 import { TextField } from "@om/ui/text-field";
 import { Dialog } from "@om/ui/dialog";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
@@ -14,9 +14,22 @@ import {
   changeUserPassword,
   fetchNotificationPrefs,
   fetchUserProfile,
+  fetchUserSessions,
+  formatSessionLabel,
+  formatSessionRelativeTime,
+  maskSessionIp,
+  revokeOtherUserSessions,
+  revokeUserSession,
   updateNotificationPrefs,
   updateUserProfile,
 } from "../settings/settingsApi";
+import { MOCK_USER_SESSIONS, type UserSession } from "../settings/settingsData";
+
+type SessionConfirm = {
+  readonly title: string;
+  readonly message: string;
+  readonly action: () => Promise<void>;
+};
 
 export function AccountPage() {
   const { user, refresh } = useAuth();
@@ -34,12 +47,37 @@ export function AccountPage() {
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [emailDigest, setEmailDigest] = useState(true);
   const [digestLive, setDigestLive] = useState(false);
+  const [sessions, setSessions] = useState<readonly UserSession[]>(MOCK_USER_SESSIONS);
+  const [sessionsSource, setSessionsSource] = useState<"preview" | "live" | "error">(
+    live ? "live" : "preview",
+  );
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState(live);
+  const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+  const [revokingOthers, setRevokingOthers] = useState(false);
+  const [sessionConfirm, setSessionConfirm] = useState<SessionConfirm | null>(null);
 
   const resetPasswordForm = useCallback(() => {
     setCurrentPassword("");
     setNextPassword("");
     setConfirmPassword("");
     setError(null);
+  }, []);
+
+  const reloadSessions = useCallback(() => {
+    setLoadingSessions(true);
+    setSessionsError(null);
+    void fetchUserSessions().then((result) => {
+      setLoadingSessions(false);
+      if (!result.ok) {
+        setSessions([]);
+        setSessionsSource("error");
+        setSessionsError(result.message);
+        return;
+      }
+      setSessions(result.sessions);
+      setSessionsSource(result.source === "live" ? "live" : "preview");
+    });
   }, []);
 
   useEffect(() => {
@@ -71,6 +109,80 @@ export function AccountPage() {
       cancelled = true;
     };
   }, [live, user?.displayName, user?.email]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external sessions bootstrap
+    reloadSessions();
+  }, [reloadSessions]);
+
+  const currentSession = useMemo(
+    () => sessions.find((session) => session.isCurrent),
+    [sessions],
+  );
+  const otherSessions = useMemo(
+    () => sessions.filter((session) => !session.isCurrent && session.status === "active"),
+    [sessions],
+  );
+
+  async function runSessionConfirm(action: SessionConfirm["action"]) {
+    setSessionConfirm(null);
+    await action();
+  }
+
+  function confirmRevokeSession(session: UserSession) {
+    const label = formatSessionLabel(session);
+    setSessionConfirm({
+      title: "Revoke session",
+      message: `Sign out ${label} (signed in ${formatSessionRelativeTime(session.createdAt)})? That device will need to log in again.`,
+      action: async () => {
+        setRevokingSessionId(session.id);
+        const result = await revokeUserSession(session.id);
+        setRevokingSessionId(null);
+        if (!result.ok) {
+          setStatus(result.message);
+          return;
+        }
+        setStatus(
+          result.source === "live"
+            ? result.message
+            : "Session revoked locally (preview mode).",
+        );
+        if (result.source === "preview") {
+          setSessions((prev) => prev.filter((row) => row.id !== session.id));
+        } else {
+          reloadSessions();
+        }
+      },
+    });
+  }
+
+  function confirmRevokeOthers() {
+    setSessionConfirm({
+      title: "Sign out other devices",
+      message: `Revoke ${String(otherSessions.length)} other active session(s)? Your current session stays signed in.`,
+      action: async () => {
+        setRevokingOthers(true);
+        const result = await revokeOtherUserSessions();
+        setRevokingOthers(false);
+        if (!result.ok) {
+          setStatus(result.message);
+          return;
+        }
+        const count =
+          result.source === "live" ? result.revokedCount : otherSessions.length;
+        setStatus(
+          result.source === "live"
+            ? result.message || `Revoked ${String(count)} session(s).`
+            : "Other sessions revoked locally (preview mode).",
+        );
+        if (result.source === "preview") {
+          setSessions((prev) => prev.filter((row) => row.isCurrent));
+        } else {
+          reloadSessions();
+        }
+      },
+    });
+  }
 
   async function submitPasswordChange() {
     if (!currentPassword || !nextPassword) {
@@ -305,10 +417,142 @@ export function AccountPage() {
                 </Button>
               </Stack>
             </Dialog>
+
+            <Divider my="xs" />
+
+            <Title order={4} style={{ fontWeight: 500 }}>
+              Active sessions
+            </Title>
             <Text size="sm" c="dimmed">
-              Active sessions list / revoke-other-devices arrives with live auth
-              session APIs.
+              {sessionsSource === "live"
+                ? "Sessions load from GET /api/user/sessions when authenticated."
+                : sessionsSource === "preview"
+                  ? "Preview mode — sample sessions; revoke actions are local only."
+                  : "Could not load live sessions."}
             </Text>
+            {sessionsError ? (
+              <Text size="sm" c="red" role="alert">
+                {sessionsError}
+              </Text>
+            ) : null}
+            {loadingSessions ? (
+              <Text size="sm" c="dimmed">
+                Loading sessions…
+              </Text>
+            ) : (
+              <Stack gap="sm">
+                {currentSession ? (
+                  <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <Stack gap={2}>
+                      <Group gap="xs">
+                        <Text size="sm" fw={500}>
+                          {formatSessionLabel(currentSession)}
+                        </Text>
+                        <Badge size="sm" color="blue" variant="light">
+                          This device
+                        </Badge>
+                      </Group>
+                      <Text size="xs" c="dimmed">
+                        {maskSessionIp(currentSession.ipAddress)} · signed in{" "}
+                        {formatSessionRelativeTime(currentSession.createdAt)}
+                      </Text>
+                    </Stack>
+                  </Group>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Current session could not be identified.
+                  </Text>
+                )}
+
+                {otherSessions.length > 0 ? (
+                  <>
+                    <Group justify="space-between" align="center">
+                      <Text size="sm" fw={500}>
+                        Other devices ({otherSessions.length})
+                      </Text>
+                      {otherSessions.length > 1 ? (
+                        <Button
+                          className="om-btn-ghost"
+                          variant="secondary"
+                          size="sm"
+                          accessibleLabel="Sign out all other devices"
+                          isDisabled={revokingSessionId !== null || revokingOthers}
+                          isPending={revokingOthers}
+                          onAction={() => confirmRevokeOthers()}
+                        >
+                          Sign out all others
+                        </Button>
+                      ) : null}
+                    </Group>
+                    <List size="sm" spacing="sm">
+                      {otherSessions.map((session) => (
+                        <List.Item key={session.id}>
+                          <Group justify="space-between" align="flex-start" wrap="nowrap">
+                            <Stack gap={2}>
+                              <Text size="sm" fw={500}>
+                                {formatSessionLabel(session)}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {maskSessionIp(session.ipAddress)} · signed in{" "}
+                                {formatSessionRelativeTime(session.createdAt)}
+                              </Text>
+                            </Stack>
+                            <Button
+                              className="om-btn-ghost"
+                              variant="secondary"
+                              size="sm"
+                              accessibleLabel={`Revoke session ${formatSessionLabel(session)}`}
+                              isDisabled={revokingSessionId !== null || revokingOthers}
+                              isPending={revokingSessionId === session.id}
+                              onAction={() => confirmRevokeSession(session)}
+                            >
+                              Revoke
+                            </Button>
+                          </Group>
+                        </List.Item>
+                      ))}
+                    </List>
+                  </>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    No other active sessions — only this device is signed in.
+                  </Text>
+                )}
+              </Stack>
+            )}
+
+            <Dialog
+              title={sessionConfirm?.title ?? "Confirm"}
+              isOpen={sessionConfirm != null}
+              onOpenChange={(open) => {
+                if (!open) setSessionConfirm(null);
+              }}
+            >
+              <Stack gap="md">
+                <Text size="sm">{sessionConfirm?.message}</Text>
+                <Group gap="sm">
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    accessibleLabel="Cancel session action"
+                    onAction={() => setSessionConfirm(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="om-btn-primary"
+                    size="sm"
+                    accessibleLabel="Confirm session action"
+                    onAction={() => {
+                      if (sessionConfirm) void runSessionConfirm(sessionConfirm.action);
+                    }}
+                  >
+                    Confirm
+                  </Button>
+                </Group>
+              </Stack>
+            </Dialog>
           </Stack>
         </Card>
       </Stack>

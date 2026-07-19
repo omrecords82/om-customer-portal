@@ -232,7 +232,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
 - [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
 - [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) per tenant
-- [x] Account password change dialog + profile surface exist; sessions list / live password API still open — evidence: `AccountPage` PUT `/api/user/profile/password` when live; GET/DELETE `/api/user/sessions` still open
+- [x] Account password change dialog + profile surface exist; **sessions list + revoke** wired on `AccountPage` — evidence: GET/DELETE `/api/user/sessions`, POST `/api/user/sessions/revoke-others` via `settingsApi.ts` when `AUTH_MODE=live`; preview keeps honest mock sessions
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events
 - [x] SPA shell links via **approved temporary** basename-aware RAC adapters (see §2.2 waivers) until GAP-LINK-* closes — document in `docs/om-package-integration.md`; do not invent fake `@om/ui` wrappers
 
@@ -257,7 +257,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard / Wave I
 
 **Dependencies:** Wave B.  
-**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, core notification toggles, and parish user directory wired; OCR simplified prefs + sessions remain open.
+**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, core notification toggles, parish user directory, and account sessions wired; OCR simplified prefs remain open.
 
 ---
 

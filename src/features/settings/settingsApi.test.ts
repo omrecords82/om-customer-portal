@@ -11,11 +11,16 @@ import {
   extractChurchSettings,
   formatChurchLocation,
   formatParishUserRole,
+  formatSessionLabel,
+  formatSessionRelativeTime,
+  maskSessionIp,
   notificationRowsToPortalPrefs,
   parseChurchUsersResponse,
+  parseSessionUserAgent,
+  parseUserProfile,
+  parseUserSessionsResponse,
   parishLocationToApiFields,
   parishProfileToChurchPayload,
-  parseUserProfile,
   portalPrefsToNotificationUpdates,
 } from "./settingsApi";
 
@@ -226,5 +231,61 @@ describe("settingsApi helpers", () => {
     });
     expect(users).toHaveLength(1);
     expect(users[0]?.name).toBe("Ann Admin");
+  });
+
+  it("parses user sessions list response wrappers", () => {
+    const sessions = parseUserSessionsResponse({
+      success: true,
+      data: {
+        sessions: [
+          {
+            id: 10,
+            is_current: true,
+            status: "active",
+            ip_address: "192.168.1.1",
+            user_agent: "Mozilla/5.0 Chrome/120 Safari/537.36",
+            created_at: "2026-07-19T12:00:00.000Z",
+            expires_at: "2026-07-26T12:00:00.000Z",
+          },
+          {
+            session_id: "11",
+            is_current: false,
+            status: "active",
+            ip_address: "10.0.0.2",
+            user_agent: "curl/8.0",
+            created_at: "2026-07-18T08:00:00.000Z",
+            expires_at: "2026-07-25T08:00:00.000Z",
+          },
+        ],
+      },
+    });
+    expect(sessions).toHaveLength(2);
+    expect(sessions[0]).toMatchObject({
+      id: "10",
+      isCurrent: true,
+      ipAddress: "192.168.1.1",
+    });
+    expect(sessions[1]?.id).toBe("11");
+  });
+
+  it("parses session user agents and labels", () => {
+    expect(parseSessionUserAgent("curl/8.0")).toMatchObject({
+      browser: "curl (CLI)",
+      deviceType: "cli",
+    });
+    expect(
+      formatSessionLabel({
+        userAgent:
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      }),
+    ).toBe("Google Chrome on macOS");
+  });
+
+  it("masks public session IPs and formats relative time", () => {
+    expect(maskSessionIp("192.168.1.42")).toBe("192.168.1.42");
+    expect(maskSessionIp("203.0.113.45")).toBe("203.0.113.***");
+    const now = Date.parse("2026-07-19T15:00:00.000Z");
+    expect(formatSessionRelativeTime("2026-07-19T14:30:00.000Z", now)).toBe("30m ago");
+    expect(formatSessionRelativeTime("2026-07-17T15:00:00.000Z", now)).toBe("2d ago");
   });
 });
