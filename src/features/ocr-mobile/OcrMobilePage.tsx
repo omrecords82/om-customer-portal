@@ -4,6 +4,7 @@ import {
   Card,
   Group,
   Progress,
+  Select as MantineSelect,
   SimpleGrid,
   Stack,
   Text,
@@ -16,12 +17,13 @@ import {
   Camera,
   CheckCircle2,
   Crop,
+  FolderOpen,
   QrCode,
   RotateCw,
   Upload,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
@@ -32,25 +34,26 @@ import {
   mapOcrJobToWizardStatus,
   retryChurchOcrJob,
   seedChurchOcrJob,
+  uploadOcrJobPages,
   type OcrJobDto,
 } from "../ocr-desktop/ocrApi";
+import {
+  buildMockDemoPages,
+  createCapturePagesFromFiles,
+  markPagesFailed,
+  markPagesUploaded,
+  revokeCapturePreviewUrls,
+  thumbBg,
+  type CapturePageItem,
+} from "./ocrMobileCapture";
 
 type Phase = 1 | 2 | 3 | 4;
 type StepStatus = "done" | "active" | "pending";
-type UploadStatus = "local" | "uploading" | "uploaded" | "failed";
-type QualityWarning = "blurry" | "glare" | "cropped" | "duplicate" | null;
 
 type Step = {
   readonly shortLabel: string;
   readonly status: StepStatus;
   readonly detail?: string;
-};
-
-type PageItem = {
-  readonly n: number;
-  readonly bg: string;
-  upload: UploadStatus;
-  quality: QualityWarning;
 };
 
 const ALL_STEPS: Record<Phase, Step[]> = {
@@ -62,7 +65,7 @@ const ALL_STEPS: Record<Phase, Step[]> = {
   ],
   2: [
     { shortLabel: "Connect", status: "done" },
-    { shortLabel: "Capture", status: "active", detail: "12 pages" },
+    { shortLabel: "Capture", status: "active", detail: "pages" },
     { shortLabel: "Review", status: "pending" },
     { shortLabel: "OCR", status: "pending" },
   ],
@@ -82,61 +85,7 @@ const ALL_STEPS: Record<Phase, Step[]> = {
 
 const PROGRESS: Record<Phase, number> = { 1: 12, 2: 37, 3: 62, 4: 88 };
 
-const THUMB_BG = [
-  "#F5F0E8",
-  "#EEF0F5",
-  "#F0F5EE",
-  "#F5EEF0",
-  "#EDF3F0",
-  "#F3EDF5",
-  "#F5F1E8",
-  "#EBF0F5",
-  "#F0F5EB",
-  "#F5EBF0",
-  "#E8F3F0",
-  "#F0E8F3",
-] as const;
-
-function thumbBg(index: number): string {
-  return THUMB_BG[index % THUMB_BG.length] ?? "#F5F0E8";
-}
-
-const INITIAL_PAGES: PageItem[] = Array.from({ length: 12 }, (_, i) => {
-  const qualities: QualityWarning[] = [
-    null,
-    "blurry",
-    null,
-    null,
-    "glare",
-    null,
-    null,
-    "cropped",
-    null,
-    null,
-    null,
-    "duplicate",
-  ];
-  const uploads: UploadStatus[] = [
-    "uploaded",
-    "uploaded",
-    "uploading",
-    "failed",
-    "uploaded",
-    "local",
-    "uploaded",
-    "local",
-    "uploaded",
-    "uploaded",
-    "uploading",
-    "uploaded",
-  ];
-  return {
-    n: i + 1,
-    bg: thumbBg(i),
-    upload: uploads[i] ?? "local",
-    quality: qualities[i] ?? null,
-  };
-});
+const RECORD_TYPES = ["Baptism", "Marriage", "Funeral", "Chrismation"] as const;
 
 const MOCK_OCR_STEPS = [
   { label: "Upload complete", done: true },
@@ -155,8 +104,12 @@ const WIZARD_STATUS_LABEL: Record<
   failed: "Failed",
 };
 
-function PhaseRail({ phase }: { phase: Phase }) {
-  const steps = ALL_STEPS[phase];
+function PhaseRail({ phase, pageCount }: { phase: Phase; pageCount: number }) {
+  const steps = ALL_STEPS[phase].map((step) =>
+    step.shortLabel === "Capture" && phase === 2
+      ? { ...step, detail: `${String(pageCount)} pages` }
+      : step,
+  );
   return (
     <Stack gap={6} mb="md" aria-label={`Workflow phase ${String(phase)} of 4`}>
       <Group gap="xs" justify="space-between" wrap="nowrap">
@@ -189,16 +142,18 @@ type ConnectMode = "scan" | "permission" | "code" | "success";
 /**
  * Productized OM OCR Mobile blueprint (Mantine + @om/ui).
  * Source UX: /blueprints/om-ocr-mobile — Connect → Capture → Review → OCR
+ * Capture uses camera/file inputs; live mode POSTs via `uploadOcrJobPages`.
  * Live retry/seed reuses church-scoped helpers from `ocr-desktop/ocrApi`.
  */
 export function OcrMobilePage() {
   const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>(1);
   const [connectMode, setConnectMode] = useState<ConnectMode>("scan");
-  const [pages, setPages] = useState<PageItem[]>(() =>
-    INITIAL_PAGES.map((p) => ({ ...p })),
-  );
-  const [selected, setSelected] = useState(1);
+  const [pages, setPages] = useState<CapturePageItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [recordType, setRecordType] = useState<string | null>("Baptism");
+  const [captureMessage, setCaptureMessage] = useState<string | null>(null);
+  const [uploadPending, setUploadPending] = useState(false);
   const [jobs, setJobs] = useState<readonly OcrJobDto[]>([]);
   const [jobsSource, setJobsSource] = useState<"mock" | "live">("mock");
   const [jobsLoading, setJobsLoading] = useState(false);
@@ -206,6 +161,10 @@ export function OcrMobilePage() {
   const [actionPendingId, setActionPendingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [pendingSeedId, setPendingSeedId] = useState<string | null>(null);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pagesRef = useRef<CapturePageItem[]>([]);
 
   const churchId = user?.churchId;
   const liveEligible =
@@ -220,7 +179,19 @@ export function OcrMobilePage() {
     () => pages.filter((p) => p.upload === "failed").length,
     [pages],
   );
+  const selected =
+    pages.find((p) => p.id === selectedId) ?? pages[0] ?? null;
   const pendingSeed = jobs.find((j) => j.id === pendingSeedId) ?? null;
+
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
+  useEffect(() => {
+    return () => {
+      revokeCapturePreviewUrls(pagesRef.current);
+    };
+  }, []);
 
   const reloadLiveJobs = useCallback((id: number) => {
     setJobsLoading(true);
@@ -265,35 +236,183 @@ export function OcrMobilePage() {
   }, [phase, churchId]);
 
   function goCapture() {
+    revokeCapturePreviewUrls(pages);
+    if (liveEligible) {
+      setPages([]);
+      setSelectedId(null);
+      setCaptureMessage(
+        "Capture with the camera or choose image files — uploads go to the church OCR queue.",
+      );
+    } else {
+      const demo = buildMockDemoPages();
+      setPages(demo);
+      setSelectedId(demo[0]?.id ?? null);
+      setCaptureMessage(
+        "Preview capture — set VITE_PORTAL_AUTH_MODE=live with church context for real camera/file uploads.",
+      );
+    }
     setPhase(2);
     setConnectMode("success");
   }
 
+  async function requestConnectCamera() {
+    const mediaDevices =
+      typeof navigator !== "undefined" ? navigator.mediaDevices : undefined;
+    if (!mediaDevices || typeof mediaDevices.getUserMedia !== "function") {
+      setConnectMode("permission");
+      return;
+    }
+    try {
+      const stream = await mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      setConnectMode("success");
+    } catch {
+      setConnectMode("permission");
+    }
+  }
+
   function addMockPage() {
-    setPages((prev) => [
-      ...prev,
-      {
+    setPages((prev) => {
+      const next: CapturePageItem = {
+        id: `mock-add-${String(prev.length + 1)}-${String(Date.now())}`,
         n: prev.length + 1,
         bg: thumbBg(prev.length),
         upload: "local",
         quality: null,
-      },
-    ]);
+        filename: `sample-page-${String(prev.length + 1)}.jpg`,
+      };
+      setSelectedId(next.id);
+      return [...prev, next];
+    });
   }
 
-  function retryFailedPageUploads() {
-    setPages((prev) =>
-      prev.map((p) =>
-        p.upload === "failed" ? { ...p, upload: "uploading" as const } : p,
-      ),
+  async function ingestFiles(fileList: FileList | readonly File[]) {
+    const files = Array.from(fileList).filter((f) => f.size > 0);
+    if (!files.length) return;
+
+    const startIndex = pages.length;
+    const pendingUpload = liveEligible ? "uploading" : "local";
+    const created = createCapturePagesFromFiles(files, startIndex, pendingUpload);
+
+    setPages((prev) => {
+      const renumbered = [...prev, ...created].map((p, i) => ({
+        ...p,
+        n: i + 1,
+        bg: thumbBg(i),
+      }));
+      return renumbered;
+    });
+    setSelectedId(created[created.length - 1]?.id ?? null);
+    setCaptureMessage(null);
+
+    if (!liveEligible || !churchId) {
+      window.setTimeout(() => {
+        setPages((prev) =>
+          prev.map((p) =>
+            created.some((c) => c.id === p.id)
+              ? { ...p, upload: "uploaded" as const }
+              : p,
+          ),
+        );
+        setCaptureMessage(
+          `Added ${String(files.length)} page(s) locally (mock — not sent to OCR API).`,
+        );
+      }, 400);
+      return;
+    }
+
+    setUploadPending(true);
+    const result = await uploadOcrJobPages({
+      churchId,
+      files,
+      recordType: recordType ?? "Baptism",
+    });
+    setUploadPending(false);
+
+    const ids = created.map((c) => c.id);
+    if (!result.ok) {
+      setPages((prev) => markPagesFailed(prev, ids));
+      setCaptureMessage(result.message);
+      return;
+    }
+
+    const jobIds = result.jobs.map((j) => j.id);
+    setPages((prev) => markPagesUploaded(prev, ids, jobIds));
+    setCaptureMessage(
+      `Uploaded ${String(result.jobs.length)} page job(s) for ${recordType ?? "Baptism"}.`,
     );
-    window.setTimeout(() => {
+  }
+
+  async function retryFailedPageUploads() {
+    const failed = pages.filter((p) => p.upload === "failed" && p.file);
+    if (!failed.length) {
+      if (!liveEligible) {
+        setPages((prev) =>
+          prev.map((p) =>
+            p.upload === "failed" ? { ...p, upload: "uploading" as const } : p,
+          ),
+        );
+        window.setTimeout(() => {
+          setPages((prev) =>
+            prev.map((p) =>
+              p.upload === "uploading" ? { ...p, upload: "uploaded" as const } : p,
+            ),
+          );
+        }, 700);
+      } else {
+        setCaptureMessage(
+          "Failed pages have no local file to re-upload. Capture or choose files again.",
+        );
+      }
+      return;
+    }
+
+    if (!liveEligible || !churchId) {
       setPages((prev) =>
         prev.map((p) =>
-          p.upload === "uploading" ? { ...p, upload: "uploaded" as const } : p,
+          p.upload === "failed" ? { ...p, upload: "uploading" as const } : p,
         ),
       );
-    }, 700);
+      window.setTimeout(() => {
+        setPages((prev) =>
+          prev.map((p) =>
+            p.upload === "uploading" ? { ...p, upload: "uploaded" as const } : p,
+          ),
+        );
+      }, 700);
+      return;
+    }
+
+    const ids = failed.map((p) => p.id);
+    const files = failed.flatMap((p) => (p.file ? [p.file] : []));
+    setPages((prev) =>
+      prev.map((p) =>
+        ids.includes(p.id) ? { ...p, upload: "uploading" as const } : p,
+      ),
+    );
+    setUploadPending(true);
+    setCaptureMessage(null);
+    const result = await uploadOcrJobPages({
+      churchId,
+      files,
+      recordType: recordType ?? "Baptism",
+    });
+    setUploadPending(false);
+    if (!result.ok) {
+      setPages((prev) => markPagesFailed(prev, ids));
+      setCaptureMessage(result.message);
+      return;
+    }
+    setPages((prev) =>
+      markPagesUploaded(
+        prev,
+        ids,
+        result.jobs.map((j) => j.id),
+      ),
+    );
+    setCaptureMessage(`Retried upload for ${String(result.jobs.length)} page(s).`);
   }
 
   const runRetry = (job: OcrJobDto) => {
@@ -337,7 +456,7 @@ export function OcrMobilePage() {
       description="Mobile capture workflow for sacramental registry pages (blueprint productization)."
     >
       <Box maw={480} mx="auto">
-        <PhaseRail phase={phase} />
+        <PhaseRail phase={phase} pageCount={pages.length} />
 
         {phase === 1 && (
           <Card padding="lg">
@@ -350,7 +469,8 @@ export function OcrMobilePage() {
               </Group>
               <Text size="sm" c="dimmed">
                 Scan the parish QR code or enter a one-time session code to attach uploads to the
-                desktop batch.
+                desktop batch. You can also continue and upload pages with the device camera or
+                file picker.
               </Text>
 
               {connectMode === "scan" && (
@@ -371,8 +491,9 @@ export function OcrMobilePage() {
               )}
 
               {connectMode === "permission" && (
-                <Text size="sm" c="orange">
-                  Camera permission is required to scan the parish QR code.
+                <Text size="sm" c="orange" role="status">
+                  Camera permission is required to scan the parish QR code. You can still Continue
+                  and use Capture / Choose files on the next step.
                 </Text>
               )}
 
@@ -387,7 +508,7 @@ export function OcrMobilePage() {
                 <Group gap="xs">
                   <CheckCircle2 size={18} color="var(--mantine-color-teal-6)" aria-hidden />
                   <Text size="sm" fw={500}>
-                    Device connected
+                    Device ready
                   </Text>
                 </Group>
               )}
@@ -397,7 +518,9 @@ export function OcrMobilePage() {
                   className="om-btn-ghost"
                   variant="secondary"
                   size="sm"
-                  onAction={() => setConnectMode("permission")}
+                  onAction={() => {
+                    void requestConnectCamera();
+                  }}
                 >
                   Request camera
                 </Button>
@@ -429,65 +552,156 @@ export function OcrMobilePage() {
                 </Badge>
               </Group>
               <Text size="sm" c="dimmed">
-                Photograph registry pages. Quality warnings flag blur, glare, crop, and duplicates.
+                Photograph registry pages or choose existing images. Quality warnings flag blur,
+                glare, crop, and duplicates when present.
               </Text>
+              <MantineSelect
+                label="Record type"
+                data={[...RECORD_TYPES]}
+                value={recordType}
+                onChange={setRecordType}
+                allowDeselect={false}
+              />
               {failedUploadCount > 0 ? (
                 <Text size="sm" c="orange" role="status">
                   {`${String(failedUploadCount)} page upload(s) failed. Retry before review, or continue and use OCR-phase job Retry when live.`}
                 </Text>
               ) : null}
-              <SimpleGrid cols={3} spacing="xs">
-                {pages.map((page) => (
-                  <Box
-                    key={page.n}
-                    h={72}
-                    p={4}
-                    style={{
-                      background: page.bg,
-                      borderRadius: 6,
-                      border:
-                        selected === page.n
-                          ? "2px solid var(--mantine-color-gold-5)"
-                          : "1px solid var(--mantine-color-default-border)",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setSelected(page.n)}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Page ${String(page.n)}${page.quality ? `, warning ${page.quality}` : ""}${page.upload === "failed" ? ", upload failed" : ""}`}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelected(page.n);
-                      }
-                    }}
-                  >
-                    <Text size="xs" fw={600}>
-                      {page.n}
-                    </Text>
-                    {page.upload === "failed" ? (
-                      <Badge size="xs" color="red" mt={4}>
-                        failed
-                      </Badge>
-                    ) : page.quality ? (
-                      <Badge size="xs" color="orange" mt={4}>
-                        {page.quality}
-                      </Badge>
-                    ) : null}
-                  </Box>
-                ))}
-              </SimpleGrid>
+              {captureMessage ? (
+                <Text size="sm" role="status">
+                  {captureMessage}
+                </Text>
+              ) : null}
+
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const list = event.currentTarget.files;
+                  if (list?.length) void ingestFiles(list);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                multiple
+                style={{ display: "none" }}
+                onChange={(event) => {
+                  const list = event.currentTarget.files;
+                  if (list?.length) void ingestFiles(list);
+                  event.currentTarget.value = "";
+                }}
+              />
+
+              {pages.length === 0 ? (
+                <Box
+                  h={120}
+                  style={{
+                    borderRadius: 8,
+                    border: "1px dashed var(--mantine-color-default-border)",
+                    display: "grid",
+                    placeItems: "center",
+                    background: "var(--mantine-color-default-hover)",
+                  }}
+                >
+                  <Text size="sm" c="dimmed">
+                    No pages yet — capture or choose files
+                  </Text>
+                </Box>
+              ) : (
+                <SimpleGrid cols={3} spacing="xs">
+                  {pages.map((page) => (
+                    <Box
+                      key={page.id}
+                      h={72}
+                      p={4}
+                      style={{
+                        background: page.previewUrl
+                          ? `center / cover no-repeat url(${page.previewUrl})`
+                          : page.bg,
+                        borderRadius: 6,
+                        border:
+                          selected?.id === page.id
+                            ? "2px solid var(--mantine-color-gold-5)"
+                            : "1px solid var(--mantine-color-default-border)",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setSelectedId(page.id)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Page ${String(page.n)}${page.filename ? `, ${page.filename}` : ""}${page.quality ? `, warning ${page.quality}` : ""}${page.upload === "failed" ? ", upload failed" : ""}${page.upload === "uploading" ? ", uploading" : ""}`}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedId(page.id);
+                        }
+                      }}
+                    >
+                      <Text size="xs" fw={600} style={{ textShadow: "0 0 4px #fff" }}>
+                        {page.n}
+                      </Text>
+                      {page.upload === "failed" ? (
+                        <Badge size="xs" color="red" mt={4}>
+                          failed
+                        </Badge>
+                      ) : page.upload === "uploading" ? (
+                        <Badge size="xs" color="blue" mt={4}>
+                          …
+                        </Badge>
+                      ) : page.quality ? (
+                        <Badge size="xs" color="orange" mt={4}>
+                          {page.quality}
+                        </Badge>
+                      ) : null}
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              )}
               <Group gap="sm">
-                <Button className="om-btn-ghost" variant="secondary" size="sm" onAction={addMockPage}>
+                <Button
+                  className="om-btn-ghost"
+                  variant="secondary"
+                  size="sm"
+                  isDisabled={uploadPending}
+                  onAction={() => cameraInputRef.current?.click()}
+                >
                   <Camera size={14} aria-hidden />
                   Capture
                 </Button>
+                <Button
+                  className="om-btn-ghost"
+                  variant="secondary"
+                  size="sm"
+                  isDisabled={uploadPending}
+                  onAction={() => fileInputRef.current?.click()}
+                >
+                  <FolderOpen size={14} aria-hidden />
+                  {uploadPending ? "Uploading…" : "Choose files"}
+                </Button>
+                {!liveEligible ? (
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    onAction={addMockPage}
+                  >
+                    Add sample
+                  </Button>
+                ) : null}
                 {failedUploadCount > 0 ? (
                   <Button
                     className="om-btn-ghost"
                     variant="secondary"
                     size="sm"
-                    onAction={retryFailedPageUploads}
+                    isDisabled={uploadPending}
+                    onAction={() => {
+                      void retryFailedPageUploads();
+                    }}
                   >
                     Retry failed uploads
                   </Button>
@@ -495,6 +709,7 @@ export function OcrMobilePage() {
                 <Button
                   className="om-btn-primary"
                   size="sm"
+                  isDisabled={pages.length === 0 || uploadPending}
                   onAction={() => setPhase(3)}
                 >
                   Review ({warningCount} warnings)
@@ -511,7 +726,9 @@ export function OcrMobilePage() {
                 Review before submit
               </Title>
               <Text size="sm" c="dimmed">
-                Fix or remove pages with warnings. Selected page: {selected}.
+                Fix or remove pages with warnings. Selected page:{" "}
+                {selected ? selected.n : "none"}.
+                {selected?.filename ? ` (${selected.filename})` : ""}
               </Text>
               {failedUploadCount > 0 ? (
                 <Text size="sm" c="orange" role="status">
@@ -538,12 +755,30 @@ export function OcrMobilePage() {
                   variant="quiet"
                   accessibleLabel="Remove page"
                   icon={<X size={16} aria-hidden />}
-                  onAction={() =>
-                    setPages((prev) => prev.filter((p) => p.n !== selected))
-                  }
+                  onAction={() => {
+                    if (!selected) return;
+                    setPages((prev) => {
+                      const next = prev.filter((p) => p.id !== selected.id);
+                      if (selected.previewUrl) {
+                        URL.revokeObjectURL(selected.previewUrl);
+                      }
+                      const renumbered = next.map((p, i) => ({
+                        ...p,
+                        n: i + 1,
+                        bg: thumbBg(i),
+                      }));
+                      setSelectedId(renumbered[0]?.id ?? null);
+                      return renumbered;
+                    });
+                  }}
                 />
               </Group>
-              <Button className="om-btn-primary" size="sm" onAction={() => setPhase(4)}>
+              <Button
+                className="om-btn-primary"
+                size="sm"
+                isDisabled={pages.length === 0}
+                onAction={() => setPhase(4)}
+              >
                 <Upload size={14} aria-hidden />
                 Submit for OCR
               </Button>
@@ -687,9 +922,14 @@ export function OcrMobilePage() {
                 variant="secondary"
                 size="sm"
                 onAction={() => {
+                  revokeCapturePreviewUrls(pages);
+                  setPages([]);
+                  setSelectedId(null);
+                  setCaptureMessage(null);
                   setPhase(1);
                   setActionMessage(null);
                   setPendingSeedId(null);
+                  setConnectMode("scan");
                 }}
               >
                 Start another session

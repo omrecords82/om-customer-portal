@@ -334,9 +334,10 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 #### BP-1 — OM OCR Mobile (full implementation)
 
 - [x] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
-- [x] Camera / file picker / permission-denied / offline-ish empty states — mock connect modes present
+- [x] Camera / file picker / permission-denied / offline-ish empty states — connect Request camera probes `getUserMedia` (permission-denied copy); capture phase uses `capture="environment"` + multi file input
 - [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
 - [x] Wire **live** OCR job history + upload + **retry/seed** when `AUTH_MODE=live` + church context (`ocrApi.ts`: `fetchChurchOcrJobs`, `uploadOcrJobPages`, `retryChurchOcrJob`, `seedChurchOcrJob`); desktop history + mobile OCR-phase Retry/Seed wired (shared client helpers)
+- [x] **Mobile capture-phase live upload** — when `AUTH_MODE=live` + churchId, Capture / Choose files call `uploadOcrJobPages` (record-type select; empty start grid; failed retry re-POSTs retained files); mock mode keeps demo thumbs + local-only ingest with honest preview copy. Evidence: `ocrMobileCapture.ts` + `OcrMobilePage.tsx` + tests
 - [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)
@@ -356,7 +357,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 
 **Dependencies:** Wave A (harden); Wave B for live APIs; GAP-FORM-ALERT / temporary menu adapters as needed.  
 **Blockers:** operator visual QA **recorded APPROVED 2026-07-19**; live OCR APIs remain open for cutover DoD (do not treat live OCR as complete).  
-**Priority:** Wave BP UX accepted; next elevated item = live OCR API integration (see execution priority).
+**Priority:** Wave BP UX accepted; live OCR history/upload/retry/seed + **mobile capture-phase upload** wired when auth live; remaining live OCR polish + Cutover DoD still open.
 
 ---
 

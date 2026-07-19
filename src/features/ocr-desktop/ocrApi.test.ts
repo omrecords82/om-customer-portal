@@ -11,6 +11,7 @@ import {
   mapOcrJobToWizardStatus,
   retryChurchOcrJob,
   seedChurchOcrJob,
+  uploadOcrJobPages,
 } from "./ocrApi";
 
 const mockedApiFetch = vi.mocked(apiFetch);
@@ -100,5 +101,52 @@ describe("retryChurchOcrJob / seedChurchOcrJob", () => {
       message: "Job is not ready to seed — confirm extraction first",
       status: 400,
     });
+  });
+});
+
+describe("uploadOcrJobPages", () => {
+  afterEach(() => {
+    mockedApiFetch.mockReset();
+  });
+
+  it("POSTs multipart form to /api/ocr/jobs/upload", async () => {
+    mockedApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          jobs: [{ id: "u1", filename: "page.jpg", status: "processing" }],
+        }),
+    } as Response);
+
+    const file = new File(["img"], "page.jpg", { type: "image/jpeg" });
+    const result = await uploadOcrJobPages({
+      churchId: 46,
+      files: [file],
+      recordType: "Baptism",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.jobs[0]?.id).toBe("u1");
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/ocr/jobs/upload",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const body = mockedApiFetch.mock.calls[0]?.[1]?.body;
+    expect(body).toBeInstanceOf(FormData);
+  });
+
+  it("rejects empty file list without calling the API", async () => {
+    const result = await uploadOcrJobPages({
+      churchId: 46,
+      files: [],
+      recordType: "Baptism",
+    });
+    expect(result).toEqual({
+      ok: false,
+      message: "No files selected.",
+      status: 400,
+    });
+    expect(mockedApiFetch).not.toHaveBeenCalled();
   });
 });
