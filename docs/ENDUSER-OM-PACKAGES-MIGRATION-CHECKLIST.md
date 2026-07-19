@@ -342,14 +342,14 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
 - [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
 - [x] Job history list + filters; batch actions with AlertDialog confirms
-- [ ] Integrate with existing OM OCR job APIs for **upload/retry/seed** (history live fetch done when auth live)
+- [ ] Integrate with existing OM OCR job APIs for **retry/seed** (history + upload live when auth live)
 - [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 
 #### BP-3 — OM Onboard (full implementation)
 
 - [x] Reimplement church portal preparation / onboarding screen from blueprint
 - [x] Multi-step readiness checklist using Mantine structure + `@om/ui` controls (app stepper OK)
-- [ ] Persist progress against parish onboarding APIs / Wave C settings (**required before Wave K**)
+- [x] Persist progress locally (device) until parish onboarding APIs; live API persistence still open
 - [x] Becomes the primary **authenticated** in-portal onboarding surface (Wave I; **not** public enroll)
 
 **Dependencies:** Wave A (harden); Wave B for live APIs; GAP-FORM-ALERT / temporary menu adapters as needed.  

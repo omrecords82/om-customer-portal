@@ -27,7 +27,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
@@ -35,6 +35,7 @@ import { filterBatches } from "./filterBatches";
 import {
   fetchChurchOcrJobs,
   mapOcrJobToWizardStatus,
+  uploadOcrJobPages,
 } from "./ocrApi";
 import type { Batch, BatchStatus, ProcessingMode } from "./types";
 
@@ -178,7 +179,10 @@ export function OcrDesktopPage() {
   const [template, setTemplate] = useState<string | null>("standard-registry");
   const [mode, setMode] = useState<ProcessingMode>("standard");
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadPending, setUploadPending] = useState(false);
   const [procStep, setProcStep] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const churchId = user?.churchId;
@@ -541,18 +545,70 @@ export function OcrDesktopPage() {
               <Stack gap={6} align="center">
                 <Upload size={28} aria-hidden />
                 <Text size="sm" c="dimmed">
-                  Drop scanned pages here (mock)
+                  {authMode === "live" && user?.churchId
+                    ? "Choose scanned page images to upload"
+                    : "Drop scanned pages here (mock)"}
                 </Text>
-                <Button
-                  className="om-btn-ghost"
-                  variant="secondary"
-                  size="sm"
-                  onAction={() => setUploadedCount((n) => n + 4)}
-                >
-                  Add sample pages
-                </Button>
+                {authMode === "live" && user?.churchId ? (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={(event) => {
+                        const list = event.currentTarget.files;
+                        if (!list?.length || !user.churchId) return;
+                        const files = Array.from(list);
+                        setUploadPending(true);
+                        setUploadMessage(null);
+                        void uploadOcrJobPages({
+                          churchId: user.churchId,
+                          files,
+                          recordType: recordType ?? "Baptism",
+                          recordLayoutMode: template ?? "auto",
+                        }).then((result) => {
+                          setUploadPending(false);
+                          if (!result.ok) {
+                            setUploadMessage(result.message);
+                            return;
+                          }
+                          setUploadedCount((n) => n + result.jobs.length);
+                          setUploadMessage(
+                            `Uploaded ${String(result.jobs.length)} page job(s).`,
+                          );
+                        });
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    <Button
+                      className="om-btn-ghost"
+                      variant="secondary"
+                      size="sm"
+                      isDisabled={uploadPending}
+                      onAction={() => fileInputRef.current?.click()}
+                    >
+                      {uploadPending ? "Uploading…" : "Choose files"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    onAction={() => setUploadedCount((n) => n + 4)}
+                  >
+                    Add sample pages
+                  </Button>
+                )}
               </Stack>
             </Box>
+            {uploadMessage ? (
+              <Text size="sm" role="status">
+                {uploadMessage}
+              </Text>
+            ) : null}
             <Text size="sm">
               Uploaded: <Text span fw={600}>{uploadedCount}</Text> pages
             </Text>

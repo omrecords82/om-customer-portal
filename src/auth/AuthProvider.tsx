@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { checkSession, loginWithCredentials, logoutSession } from "./authApi";
+import { authMode, requireAuth } from "./config";
 import type { LoginCredentials, LoginResult, PortalUser } from "./types";
 
 type AuthContextValue = {
@@ -40,6 +41,18 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional auth bootstrap
     void refresh();
   }, [refresh]);
+
+  // Live pilot: periodic session check for expiry while requireAuth is on.
+  useEffect(() => {
+    if (authMode !== "live" || !requireAuth) return;
+    const id = window.setInterval(() => {
+      void checkSession().then((next) => {
+        setUser(next);
+        if (!next) setReady(true);
+      });
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const login = useCallback(
     async (credentials: LoginCredentials, nextAppPath: string) => {

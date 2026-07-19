@@ -1,3 +1,5 @@
+import { apiFetch } from "../../auth/apiFetch";
+
 /**
  * Live OCR job API client for Customer Portal (Wave BP / F).
  * Parity: legacy Portal OCR desktop uses church-scoped job routes.
@@ -18,12 +20,9 @@ export type FetchOcrJobsResult =
   | { readonly ok: true; readonly jobs: readonly OcrJobDto[] }
   | { readonly ok: false; readonly message: string; readonly status: number };
 
-function authHeaders(): HeadersInit {
-  const headers: HeadersInit = { Accept: "application/json" };
-  const token = localStorage.getItem("access_token");
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
+export type UploadOcrJobsResult =
+  | { readonly ok: true; readonly jobs: readonly OcrJobDto[] }
+  | { readonly ok: false; readonly message: string; readonly status: number };
 
 function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -81,13 +80,9 @@ export async function fetchChurchOcrJobs(
   }
 
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `/api/church/${String(churchId)}/ocr/jobs?limit=${String(limit)}`,
-      {
-        method: "GET",
-        credentials: "include",
-        headers: authHeaders(),
-      },
+      { method: "GET" },
     );
 
     if (!res.ok) {
@@ -106,6 +101,52 @@ export async function fetchChurchOcrJobs(
       message: "Network error loading OCR jobs.",
       status: 0,
     };
+  }
+}
+
+/** POST /api/ocr/jobs/upload — multipart page upload (legacy parity). */
+export async function uploadOcrJobPages(opts: {
+  readonly churchId: number;
+  readonly files: readonly File[];
+  readonly recordType: string;
+  readonly language?: string;
+  readonly recordLayoutMode?: string;
+}): Promise<UploadOcrJobsResult> {
+  if (!opts.files.length) {
+    return { ok: false, message: "No files selected.", status: 400 };
+  }
+  const form = new FormData();
+  for (const file of opts.files) {
+    form.append("files", file);
+  }
+  form.append("churchId", String(opts.churchId));
+  form.append("recordType", opts.recordType.toLowerCase());
+  form.append("language", opts.language ?? "en");
+  form.append("recordLayoutMode", opts.recordLayoutMode ?? "auto");
+
+  try {
+    const res = await apiFetch("/api/ocr/jobs/upload", {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
+      return {
+        ok: false,
+        message:
+          body?.message ??
+          body?.error ??
+          `OCR upload failed (${String(res.status)}).`,
+        status: res.status,
+      };
+    }
+    const data = await res.json().catch(() => null);
+    return { ok: true, jobs: unwrapJobs(data) };
+  } catch {
+    return { ok: false, message: "Network error uploading OCR pages.", status: 0 };
   }
 }
 

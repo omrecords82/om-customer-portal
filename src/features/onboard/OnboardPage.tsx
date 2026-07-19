@@ -12,6 +12,8 @@ type OnboardStep = {
   readonly status: StepStatus;
 };
 
+const STORAGE_KEY = "om_portal2_onboard_progress";
+
 const INITIAL_STEPS: readonly OnboardStep[] = [
   { id: "profile", label: "Preparing Church Profile", status: "completed" },
   { id: "storage", label: "Provisioning Database & Storage", status: "processing" },
@@ -20,6 +22,34 @@ const INITIAL_STEPS: readonly OnboardStep[] = [
   { id: "records", label: "Importing Records & Enabling Certificates", status: "pending" },
   { id: "validation", label: "Running Final Validation", status: "pending" },
 ];
+
+function readPersistedCursor(): number | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { cursor?: unknown };
+    return typeof parsed.cursor === "number" ? parsed.cursor : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedCursor(cursor: number): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ cursor, savedAt: Date.now() }));
+}
+
+function stepsFromCursor(cursor: number): OnboardStep[] {
+  return INITIAL_STEPS.map((step, index) => {
+    if (index < cursor) return { ...step, status: "completed" as const };
+    if (index === cursor && cursor < INITIAL_STEPS.length) {
+      return { ...step, status: "processing" as const };
+    }
+    if (cursor >= INITIAL_STEPS.length) {
+      return { ...step, status: "completed" as const };
+    }
+    return { ...step, status: "pending" as const };
+  });
+}
 
 function StepIcon({ status }: { status: StepStatus }) {
   if (status === "completed") {
@@ -33,31 +63,30 @@ function StepIcon({ status }: { status: StepStatus }) {
 
 /**
  * Productized OM Onboard blueprint (Mantine + token-aware chrome).
- * Source UX: /blueprints/om-onboard
+ * Progress persists locally until parish onboarding APIs are wired.
  */
 export function OnboardPage() {
   const colorScheme = useComputedColorScheme("light");
-  const [steps, setSteps] = useState<OnboardStep[]>(() => [...INITIAL_STEPS]);
+  const [steps, setSteps] = useState<OnboardStep[]>(() => {
+    const saved = readPersistedCursor();
+    return saved == null ? [...INITIAL_STEPS] : stepsFromCursor(saved);
+  });
 
   useEffect(() => {
-    const order = INITIAL_STEPS.map((s) => s.id);
-    let cursor = 1;
+    const saved = readPersistedCursor();
+    if (saved != null && saved >= INITIAL_STEPS.length) {
+      return;
+    }
+    let cursor = saved == null ? 1 : Math.max(saved, 1);
     const timer = window.setInterval(() => {
       cursor += 1;
-      if (cursor >= order.length) {
+      writePersistedCursor(cursor);
+      if (cursor >= INITIAL_STEPS.length) {
         window.clearInterval(timer);
-        setSteps((prev) =>
-          prev.map((step) => ({ ...step, status: "completed" as const })),
-        );
+        setSteps(stepsFromCursor(cursor));
         return;
       }
-      setSteps((prev) =>
-        prev.map((step, index) => {
-          if (index < cursor) return { ...step, status: "completed" };
-          if (index === cursor) return { ...step, status: "processing" };
-          return { ...step, status: "pending" };
-        }),
-      );
+      setSteps(stepsFromCursor(cursor));
     }, 2200);
     return () => window.clearInterval(timer);
   }, []);
@@ -79,78 +108,45 @@ export function OnboardPage() {
   return (
     <PageLayout
       title="Portal Onboarding"
-      description="Orthodox Metrics is preparing your church portal workspace."
+      description="Church portal preparation and provisioning status."
     >
       <Box
-        maw={640}
+        maw={560}
         mx="auto"
-        p={{ base: "lg", sm: "xl" }}
+        p="xl"
         style={{
           background: cardBg,
-          border: "1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border))",
-          borderRadius: "var(--mantine-radius-md)",
-          boxShadow: "var(--mantine-shadow-md)",
+          borderRadius: 12,
+          border: "1px solid var(--mantine-color-default-border)",
         }}
       >
-        <Group justify="space-between" mb="xs">
-          <Text size="xs" c="dimmed">
-            {stepLabel}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {progress < 100 ? "~3 minutes remaining" : "Setup complete"}
-          </Text>
-        </Group>
-        <Progress value={progress} mb="xl" color="gold" size="sm" radius="xl" aria-label="Onboarding progress" />
-
-        <Stack align="center" gap="md" mb="xl">
-          <ThemeIcon
-            size={88}
-            radius="xl"
-            variant="light"
-            color="navy"
-            aria-hidden
-          >
-            <Church size={40} strokeWidth={1.5} />
+        <Stack gap="lg" align="center">
+          <ThemeIcon size={56} radius="md" variant="light" color="navy">
+            <Church size={28} aria-hidden />
           </ThemeIcon>
-          <Title order={2} ta="center" style={{ fontWeight: 500 }}>
-            {progress < 100
-              ? "We're preparing your church portal…"
-              : "Your church portal is ready"}
-          </Title>
-          <Text c="dimmed" ta="center" maw={480}>
-            Orthodox Metrics is setting up your church profile, records workspace, users,
-            permissions, branding, and certificate tools.
-            {progress < 100
-              ? " You'll be notified when setup is complete."
-              : " You can continue to the parish dashboard."}
-          </Text>
-        </Stack>
-
-        <Stack gap="md" role="list" aria-label="Onboarding steps">
-          {steps.map((step) => (
-            <Group key={step.id} gap="md" wrap="nowrap" role="listitem" align="flex-start">
-              <Box pt={2} aria-hidden>
+          <Stack gap={4} align="center">
+            <Title order={2} style={{ fontWeight: 500, textAlign: "center" }}>
+              Preparing Your Church Portal
+            </Title>
+            <Text size="sm" c="dimmed" ta="center">
+              {stepLabel} · progress saved on this device until live APIs ship
+            </Text>
+          </Stack>
+          <Progress value={progress} w="100%" color="navy" size="sm" radius="xl" />
+          <Stack gap="sm" w="100%" role="list" aria-label="Onboarding steps">
+            {steps.map((step) => (
+              <Group key={step.id} gap="sm" wrap="nowrap" role="listitem">
                 <StepIcon status={step.status} />
-              </Box>
-              <Text
-                style={{
-                  color:
-                    step.status === "processing"
-                      ? "var(--mantine-color-text)"
-                      : "var(--mantine-color-dimmed)",
-                  fontWeight: step.status === "processing" ? 500 : 400,
-                }}
-              >
-                {step.label}
-                {step.status === "processing" ? (
-                  <Text span size="sm" c="dimmed">
-                    {" "}
-                    (in progress)
-                  </Text>
-                ) : null}
-              </Text>
-            </Group>
-          ))}
+                <Text
+                  size="sm"
+                  fw={step.status === "processing" ? 600 : 400}
+                  {...(step.status === "pending" ? { c: "dimmed" as const } : {})}
+                >
+                  {step.label}
+                </Text>
+              </Group>
+            ))}
+          </Stack>
         </Stack>
       </Box>
     </PageLayout>
