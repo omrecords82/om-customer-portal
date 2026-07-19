@@ -311,7 +311,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Light + dark schemes work via existing `OmThemeSync`
 - [x] Keyboard / screen-reader basics (named icon buttons, dialog titles, focus order through wizard steps) — baseline; continue hardening
 - [x] Vitest coverage for step-state machines / critical transitions (onboard + OCR mobile)
-- [ ] **Operator visual QA sign-off** (required — see §BP Visual QA). Implementation may stay checked; **Wave BP is not fully accepted** until sign-off is recorded.
+- [ ] **Operator visual QA sign-off** (required — see §BP Visual QA and `docs/BLUEPRINT-VISUAL-QA.md`). Implementation may stay checked; **Wave BP is not fully accepted** until sign-off is recorded.
 - [ ] Legacy `/blueprints/*` routes remain reference-only until Wave K (optional redirect later)
 
 #### BP Visual QA — operator sign-off (required)
