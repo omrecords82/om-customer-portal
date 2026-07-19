@@ -55,6 +55,8 @@ Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/
 
 Per-tenant pilot enablement runbook: `docs/AUTH-PILOT-CHECKLIST.md` · env dry-run: `pnpm validate:auth-pilot`
 
+**Sole authorized pilot tenant:** `om_church_46` (slug). Apply `VITE_PORTAL_AUTH_MODE=live` + `VITE_PORTAL_REQUIRE_AUTH=true` only for that tenant's deploy — defaults stay `mock` / `false`.
+
 ### Records editor dual-run (Wave H prep)
 
 | Env | Default | Meaning |

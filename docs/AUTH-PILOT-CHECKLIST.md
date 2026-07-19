@@ -12,7 +12,7 @@
    ```
    Confirms effective `VITE_PORTAL_*` flags and prints the manual verification list. Does **not** substitute for real-user testing.
 
-2. **Allowlist** — record the tenant in the allowlist table below (operator supplies real slug/church id at enablement time; do **not** commit production IDs until verified).
+2. **Allowlist** — confirm the tenant slug in the allowlist table below matches the operator-provided identifier. **Sole authorized pilot tenant:** `om_church_46`. Record numeric `church_id` from Account → Session diagnostics after first live login if it differs from the slug.
 
 3. **Deploy flags** — apply **only** for the target pilot deploy (internal users or one allowlisted tenant):
    ```bash
@@ -32,15 +32,15 @@
 
 | Tenant slug | Church id | Env scope / deploy note | Authorized by | Date |
 | --- | --- | --- | --- | --- |
-| `<tenant-slug>` | `<church-id>` | `<e.g. single-tenant env file or deploy job>` | `<operator>` | YYYY-MM-DD |
+| `om_church_46` | *(confirm from live session diagnostics)* | Per-tenant deploy: `VITE_PORTAL_AUTH_MODE=live`, `VITE_PORTAL_REQUIRE_AUTH=true` — **not** committed globally | operator | 2026-07-19 |
 
-> Leave placeholders until a tenant is actually enabled. Do **not** invent IDs for scaffolding commits.
+> **Sole pilot tenant:** `om_church_46` is the operator-provided identifier (slug). Do **not** add other tenants without explicit authorization. If session `churchId` differs from the slug, update the Church id column after first live login — do not invent numeric IDs.
 
 ## Per-tenant evidence log
 
 Copy one block per enabled tenant. Attach screenshots or log excerpts in your operator ticket — not necessarily in git.
 
-### Tenant: `<tenant-slug>` · Church `<church-id>`
+### Tenant: `om_church_46` · Church *(confirm from session diagnostics)*
 
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |

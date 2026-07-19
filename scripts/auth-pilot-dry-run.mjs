@@ -164,7 +164,7 @@ function main() {
   }
 
   console.log("Per-tenant enablement (operator fills evidence in docs/AUTH-PILOT-CHECKLIST.md):");
-  console.log("  Allowlist entry:     <tenant-slug> / <church-id> — do not commit real IDs until verified");
+  console.log("  Allowlist entry:     om_church_46 / <church-id from session diagnostics>");
   console.log("  Deploy env scope:    per-tenant build or env injection per operator runbook");
   console.log("  Evidence owner:      <operator-name>");
   console.log("  Verification date:   YYYY-MM-DD");
