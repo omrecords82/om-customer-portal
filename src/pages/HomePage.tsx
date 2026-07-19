@@ -1,4 +1,4 @@
-import { Box, Card, SimpleGrid, Stack, Text, Title, Group } from "@mantine/core";
+import { Badge, Box, Card, SimpleGrid, Stack, Text, Title, Group } from "@mantine/core";
 import { Button } from "@om/ui/button";
 import {
   Plus,
@@ -8,38 +8,52 @@ import {
   Clock,
   Upload,
   CalendarX,
+  ArrowRight,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PageLayout } from "../components/PageLayout";
 import { useAuth } from "../auth/AuthProvider";
 import { authMode } from "../auth/config";
+import { resolveCemeteryFlags } from "../features/cemetery/cemeteryFlags";
 import { useHubDashboard } from "../features/hub/useHubDashboard";
 import type { HubActivityItem } from "../features/hub/hubApi";
+import {
+  buildActivityEmptyDescription,
+  buildCertificatesNote,
+  buildHubSecondaryModules,
+  buildHubStatusNote,
+  buildHubWelcomeLine,
+  buildRecordsThisMonthNote,
+  buildSacramentalRecordsNote,
+  certificateCountUnavailable,
+  dashboardUnavailable,
+  formatHubCount,
+  hubActivityItems,
+  hubCertificatesIssued,
+  hubDashboardSlice,
+  type HubSecondaryModule,
+} from "../features/hub/hubPresentation";
 
 /**
  * Hub honesty (Wave D): show live KPIs/activity when AUTH_MODE=live + churchId;
  * otherwise honest empty / preview states — never invent sample data.
  */
 
-function formatCount(value: number | null | undefined, loading: boolean): string {
-  if (loading) return "…";
-  if (value == null) return "—";
-  return value.toLocaleString();
-}
-
 function SummaryCard({
   label,
   value,
   note,
   icon: Icon,
+  loading,
 }: {
   label: string;
   value: string;
   note: string;
   icon: typeof Users;
+  loading: boolean;
 }) {
   return (
-    <Card>
+    <Card aria-busy={loading}>
       <Group justify="space-between" align="flex-start" mb="sm">
         <Text
           size="xs"
@@ -72,7 +86,7 @@ function SummaryCard({
           fontSize: 32,
           fontWeight: 400,
           lineHeight: 1,
-          color: "var(--mantine-color-text)",
+          color: loading ? "var(--mantine-color-dimmed)" : "var(--mantine-color-text)",
         }}
         mb={6}
       >
@@ -168,7 +182,7 @@ function ActivityFeedCard({
 }) {
   if (loading) {
     return (
-      <Card style={{ minHeight: 220 }} py="xl">
+      <Card style={{ minHeight: 220 }} py="xl" aria-busy="true">
         <Text size="sm" c="dimmed" ta="center">
           Loading recent activity…
         </Text>
@@ -192,11 +206,7 @@ function ActivityFeedCard({
     return (
       <HonestEmptyPanel
         title="No recent activity yet"
-        description={
-          liveSession
-            ? "No recent sacramental records returned for this parish."
-            : "Parish activity will appear here once live hub events are wired. Quick actions above still work."
-        }
+        description={buildActivityEmptyDescription(liveSession)}
         icon={Clock}
         actionLabel="Open records"
         onAction={onOpenRecords}
@@ -248,55 +258,92 @@ function ActivityFeedCard({
   );
 }
 
+const AVAILABILITY_LABELS: Record<
+  HubSecondaryModule["availability"],
+  string
+> = {
+  ready: "Available",
+  preview: "Preview",
+  disabled: "Not enabled",
+};
+
+function ModuleLinkCard({
+  module,
+  onOpen,
+}: {
+  module: HubSecondaryModule;
+  onOpen: (href: string) => void;
+}) {
+  const disabled = module.availability === "disabled";
+
+  return (
+    <Card padding="md" style={{ height: "100%" }}>
+      <Group justify="space-between" align="flex-start" mb="xs" wrap="nowrap">
+        <Text fw={500} size="sm">
+          {module.label}
+        </Text>
+        <Badge
+          size="xs"
+          variant="light"
+          color={
+            module.availability === "ready"
+              ? "green"
+              : module.availability === "preview"
+                ? "blue"
+                : "gray"
+          }
+        >
+          {AVAILABILITY_LABELS[module.availability]}
+        </Badge>
+      </Group>
+      <Text size="xs" c="dimmed" mb={6}>
+        {module.description}
+      </Text>
+      <Text size="xs" c="dimmed" mb="md">
+        {module.availabilityNote}
+      </Text>
+      <Button
+        className="om-btn-ghost"
+        variant="secondary"
+        size="sm"
+        isDisabled={disabled}
+        accessibleLabel={`Open ${module.label}`}
+        onAction={() => {
+          if (!disabled) onOpen(module.href);
+        }}
+      >
+        {disabled ? "Not enabled" : "Open"}
+        {!disabled ? <ArrowRight size={14} aria-hidden="true" /> : null}
+      </Button>
+    </Card>
+  );
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const liveSession = authMode === "live" && user?.churchId != null;
   const hub = useHubDashboard(user?.churchId);
+  const cemeteryEnabled = resolveCemeteryFlags().enabled;
 
   const loading = hub.status === "loading";
-  const errored = hub.status === "error";
-  const dashboard = hub.status === "ready" ? hub.dashboard : null;
-  const certificatesIssued =
-    hub.status === "ready" ? hub.certificatesIssued : null;
-  const activity = hub.status === "ready" ? hub.activity : [];
-  const partialErrors =
-    hub.status === "ready" ? hub.partialErrors : ([] as readonly string[]);
-  const dashFailed =
-    errored ||
-    (hub.status === "ready" && hub.source === "live" && dashboard == null);
-  const certFailed =
-    errored ||
-    (hub.status === "ready" &&
-      hub.source === "live" &&
-      certificatesIssued == null &&
-      partialErrors.some((e) => /certificate/i.test(e)));
+  const dashboard = hubDashboardSlice(hub);
+  const certificatesIssued = hubCertificatesIssued(hub);
+  const activity = hubActivityItems(hub);
+  const dashFailed = dashboardUnavailable(hub, loading);
+  const certFailed = certificateCountUnavailable(hub, loading);
 
-  const welcomeLine = liveSession
-    ? `Signed in as ${user.displayName}.`
-    : "Welcome to the Customer Portal preview. Summary and activity stay empty (not sample data).";
-
-  const statusNote = (() => {
-    if (!liveSession) {
-      return "Preview mode — summary and activity are empty until live auth and hub APIs are enabled.";
-    }
-    if (loading) {
-      return "Loading parish dashboard from live hub APIs…";
-    }
-    if (errored) {
-      return `Hub data unavailable — ${hub.message} Showing honest empty states.`;
-    }
-    if (partialErrors.length > 0) {
-      return `Some hub widgets failed (${partialErrors.join(" ")}). Available data shown; failed tiles stay empty.`;
-    }
-    if (hub.status === "ready" && hub.source === "live") {
-      return "Live hub data from church dashboard and certificate history.";
-    }
-    return "Dashboard KPIs and activity feed wait on live hub APIs — showing honest empty states (not sample data).";
-  })();
+  const session = { liveSession, displayName: user?.displayName ?? null };
+  const welcomeLine = buildHubWelcomeLine(session);
+  const statusNote = buildHubStatusNote({ session, hub });
+  const secondaryModules = buildHubSecondaryModules({ cemeteryEnabled });
 
   const openRecords = () => {
     void navigate("/records");
+  };
+
+  const openModule = (href: string) => {
+    void navigate(href);
   };
 
   const primaryAction = (
@@ -319,7 +366,13 @@ export function HomePage() {
       action={primaryAction}
     >
       <Stack gap="lg">
-        <Text size="sm" c="dimmed" role="status">
+        <Text
+          size="sm"
+          c="dimmed"
+          role="status"
+          aria-live="polite"
+          aria-busy={loading}
+        >
           {statusNote}
         </Text>
 
@@ -357,39 +410,36 @@ export function HomePage() {
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
           <SummaryCard
             label="Sacramental Records"
-            value={formatCount(dashboard?.totalRecords, loading)}
-            note={
-              dashFailed
-                ? "Dashboard API unavailable"
-                : liveSession && dashboard
-                  ? `${dashboard.baptisms.toLocaleString()} baptisms · ${dashboard.marriages.toLocaleString()} marriages · ${dashboard.funerals.toLocaleString()} funerals`
-                  : "Membership counts when hub APIs connect"
-            }
+            value={formatHubCount(dashboard?.totalRecords, loading)}
+            note={buildSacramentalRecordsNote({
+              session,
+              dashboard,
+              dashFailed,
+            })}
             icon={Users}
+            loading={loading}
           />
           <SummaryCard
             label="Records This Month"
-            value={formatCount(dashboard?.recordsThisMonth, loading)}
-            note={
-              dashFailed
-                ? "Dashboard API unavailable"
-                : liveSession && dashboard
-                  ? "From church dashboard monthly activity"
-                  : "Sacramental totals when records APIs connect"
-            }
+            value={formatHubCount(dashboard?.recordsThisMonth, loading)}
+            note={buildRecordsThisMonthNote({
+              session,
+              dashboard,
+              dashFailed,
+            })}
             icon={FileText}
+            loading={loading}
           />
           <SummaryCard
             label="Certificates Issued"
-            value={formatCount(certificatesIssued, loading)}
-            note={
-              certFailed
-                ? "Certificate history unavailable"
-                : liveSession && certificatesIssued != null
-                  ? "From certificate generation history"
-                  : "Certificate history when cert APIs connect"
-            }
+            value={formatHubCount(certificatesIssued, loading)}
+            note={buildCertificatesNote({
+              session,
+              certificatesIssued,
+              certFailed,
+            })}
             icon={Award}
+            loading={loading}
           />
         </SimpleGrid>
 
@@ -405,8 +455,33 @@ export function HomePage() {
             title="No upcoming events"
             description="Liturgical calendar is post-MVP. This panel stays empty rather than inventing sample events."
             icon={CalendarX}
+            actionLabel="View help & site map"
+            onAction={() => {
+              void navigate("/help");
+            }}
           />
         </SimpleGrid>
+
+        <Stack gap="xs">
+          <Text
+            size="xs"
+            tt="uppercase"
+            fw={500}
+            c="dimmed"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Parish modules
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+            {secondaryModules.map((module) => (
+              <ModuleLinkCard
+                key={module.href}
+                module={module}
+                onOpen={openModule}
+              />
+            ))}
+          </SimpleGrid>
+        </Stack>
       </Stack>
     </PageLayout>
   );

@@ -246,7 +246,7 @@ describe("fetchSacramentalRecordsList (live)", () => {
     });
     expect(mockedApiFetch).toHaveBeenCalledTimes(3);
     for (const call of mockedApiFetch.mock.calls) {
-      const url = String(call[0]);
+      const url = call[0];
       expect(url).toContain("church_id=99");
       expect(url).not.toMatch(/church_id=0(?:&|$)/);
       expect(url).not.toContain("tenant_id=");

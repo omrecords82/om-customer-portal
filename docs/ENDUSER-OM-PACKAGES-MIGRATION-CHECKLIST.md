@@ -271,7 +271,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 
 - [x] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K** — evidence: `src/features/hub/hubApi.ts` + `useHubDashboard` wire `HomePage` to `GET /api/churches/:churchId/dashboard` + `GET /api/certificates/history` when `AUTH_MODE=live` + churchId; preview/error keep honest empties (no fake KPI/activity as-if-live)
 - [x] Hub actions/menus via `@om/ui` (quick actions on home; rich menus may use temporary RAC adapters per §2.2)
-- [x] Empty/onboarding hub states — evidence: `HomePage.tsx` empty activity + calendar panels with explicit preview/live notes
+- [x] Empty/onboarding hub states — evidence: `HomePage.tsx` honest activity + calendar empties; `hubPresentation.ts` status/KPI copy + secondary module cards with availability badges (preview/live/disabled); calendar CTA → Help
 - [x] Help / guide / site-map pages in new app
 - [x] Nav config single-sourced (routes, titles, icons, permissions) — permissions TBD with live roles
 
@@ -611,7 +611,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] **Visual QA** — before/after or hub screenshots for touched surfaces; BP operator sign-off for blueprints (**APPROVED** 2026-07-19)
 - [ ] **Branding** — verify at least one non–Church-46 tenant when chrome/tokens change (required for Wave K evidence)
 - [ ] **i18n** — if/when wired, keep keys; no accidental English hardcoding regressions
-- [ ] **Tests** — Vitest for new logic; smoke for auth + hub + one deep feature per wave; deep-link tests for records
+- [ ] **Tests** — Vitest for new logic; smoke for auth + hub + one deep feature per wave; deep-link tests for records — hub: `hubPresentation.test.ts` + `HomePage.test.tsx` smoke (2026-07-19); auth + records deep-link covered; remaining waves partial
 - [ ] **Rollback** — `/portal2` preview + feature flags; never force-global cutover mid-wave
 - [ ] **Work refs** — commit/PR messages cite `PORTAL-WAVE-*` slug + OMBC receipt; no invented OMD IDs
 
