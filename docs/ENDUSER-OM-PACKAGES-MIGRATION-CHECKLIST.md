@@ -389,7 +389,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 **This implementation must complete before Wave H editors begin and before Wave K cutover.**
 
 - [x] Records landing + type filters/search (Mantine TextInput/Select + `@om/ui` actions)
-- [x] Add / more actions via Button/Menu/AlertDialog (Add button + destructive delete confirm)
+- [x] Add / more actions via Button/Menu/AlertDialog (Add button + destructive delete confirm) — **list-only gate prep (2026-07-19): create/edit/delete UI removed from RecordsPage until Wave H; live list/search wired instead**
 - [x] Mobile-friendly list/card chrome
 - [x] Deep-link **product decision** recorded (preserve legacy `?type=` contract)
 - [x] Deep-link **implementation + tests** (parse/normalize/fallback; evidence: `recordsDeepLink.ts` + tests)
@@ -469,7 +469,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 #### Wave H entry gates (all must pass before any editor work)
 
 - [ ] Live authentication and church context work for pilot users
-- [ ] Real records-list APIs work in the Customer Portal
+- [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`. **Editors still blocked.**
 - [x] Wave E records deep-link compatibility is implemented and tested
 - [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts`
 - [ ] Read / create / update / delete permission rules are documented

@@ -9,14 +9,16 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
 import { IconButton } from "@om/ui/icon-button";
-import { LayoutGrid, List, Plus, Trash2 } from "lucide-react";
+import { LayoutGrid, List } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 
+import { useAuth } from "../../auth/AuthProvider";
+import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
+import { fetchSacramentalRecordsList } from "./recordsApi";
 import {
   MOCK_RECORDS,
   RECORD_TYPE_LABEL,
@@ -40,26 +42,47 @@ const STATUS_COLOR: Record<SacramentalRecord["status"], string> = {
   draft: "gray",
 };
 
+const PAGE_SIZE = 25;
+
 /**
- * Wave E — records list chrome (search/filters/views). Editors are Wave H.
+ * Wave E chrome + Wave H gate prep — live records list/search only.
  * Deep links: preserve legacy `?type=` contract (+ aliases, recordId, churchId).
+ * Editors / create / edit / delete deferred to Wave H.
  */
 export function RecordsPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const parsed = useMemo(
     () => parseRecordsDeepLink(searchParams),
     [searchParams],
   );
 
-  // URL is the source of truth for type filter (bookmarks / external links).
   const typeFilter = parsed.typeFilter;
+  const liveEligible =
+    authMode === "live" && user?.churchId != null && user.churchId > 0;
 
   const [records, setRecords] = useState<SacramentalRecord[]>([...MOCK_RECORDS]);
-  const [query, setQuery] = useState(() => parsed.extras.q ?? "");
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [listSource, setListSource] = useState<"mock" | "live" | "empty">("mock");
+  const [listNote, setListNote] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(MOCK_RECORDS.length);
 
-  // Normalize alias types in the address bar (weddings → marriage) without dropping extras.
+  const [query, setQuery] = useState(() => parsed.extras.q ?? "");
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedQuery(query), 300);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset pagination when filters change
+    setPage(1);
+  }, [typeFilter, debouncedQuery]);
+
   useEffect(() => {
     const rawType = searchParams.get("type");
     if (!rawType) return;
@@ -73,6 +96,58 @@ export function RecordsPage() {
       setSearchParams(next.startsWith("?") ? next.slice(1) : next, { replace: true });
     }
   }, [parsed, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- records list bootstrap
+    setListLoading(true);
+
+    void fetchSacramentalRecordsList({
+      churchId: user?.churchId ?? null,
+      typeFilter,
+      search: liveEligible ? debouncedQuery : "",
+      page,
+      limit: PAGE_SIZE,
+    }).then((result) => {
+      if (cancelled) return;
+      setListLoading(false);
+
+      if (!result.ok) {
+        setRecords([]);
+        setListSource("empty");
+        setListNote(result.message);
+        setTotalRecords(0);
+        setTotalPages(1);
+        return;
+      }
+
+      if (result.source === "mock") {
+        setRecords([...result.records]);
+        setListSource("mock");
+        setListNote(
+          "Preview mock data — live list uses GET /api/baptism-records, /api/marriage-records, and /api/funeral-records when AUTH_MODE=live with church context.",
+        );
+        setTotalRecords(MOCK_RECORDS.length);
+        setTotalPages(1);
+        return;
+      }
+
+      setRecords([...result.records]);
+      setListSource("live");
+      setTotalRecords(result.meta.totalRecords);
+      setTotalPages(result.meta.totalPages);
+      setListNote(
+        result.note ??
+          (result.records.length === 0
+            ? "No records match the current filters."
+            : null),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveEligible, user?.churchId, typeFilter, debouncedQuery, page]);
 
   function updateTypeFilter(next: string | null) {
     const type: RecordsTypeFilter =
@@ -94,31 +169,37 @@ export function RecordsPage() {
     setSearchParams(qs.startsWith("?") ? qs.slice(1) : qs, { replace: true });
   }
 
-  const filtered = useMemo(
-    () =>
-      filterRecords(records, {
-        query,
-        type: typeFilter,
-      }),
-    [records, query, typeFilter],
-  );
+  const filtered = useMemo(() => {
+    if (liveEligible) return records;
+    return filterRecords(records, { query, type: typeFilter });
+  }, [liveEligible, records, query, typeFilter]);
 
-  const pending = records.find((r) => r.id === pendingDeleteId) ?? null;
   const deepLinkNote =
     parsed.recordId != null
       ? ` · deep link recordId=${parsed.recordId}`
       : "";
 
+  const countLabel = liveEligible
+    ? `${String(totalRecords)} records${listLoading ? " · loading…" : ""}`
+    : `${String(filtered.length)} records`;
+
+  const sourceLabel =
+    listSource === "live"
+      ? "live parish data"
+      : listSource === "mock"
+        ? "mock data"
+        : "no data";
+
+  const showPagination =
+    liveEligible &&
+    typeFilter !== "all" &&
+    totalPages > 1 &&
+    listSource === "live";
+
   return (
     <PageLayout
       title="Records"
-      description="View and manage baptisms, marriages, chrismations, and other sacramental records."
-      action={
-        <Button className="om-btn-primary" size="sm" accessibleLabel="Add record">
-          <Plus size={14} aria-hidden />
-          Add record
-        </Button>
-      }
+      description="View baptisms, marriages, chrismations, and other sacramental records. List and search are live when authenticated; editors remain deferred to Wave H."
     >
       <Stack gap="md">
         <Group justify="space-between" wrap="wrap" align="flex-end">
@@ -157,11 +238,16 @@ export function RecordsPage() {
         </Group>
 
         <Text size="sm" c="dimmed">
-          {`${String(filtered.length)} records · mock data · editors deferred to Wave H`}
+          {`${countLabel} · ${sourceLabel} · editors deferred to Wave H`}
           {deepLinkNote}
         </Text>
+        {listNote ? (
+          <Text size="sm" c="dimmed">
+            {listNote}
+          </Text>
+        ) : null}
 
-        {filtered.length === 0 ? (
+        {filtered.length === 0 && !listLoading ? (
           <Text size="sm" c="dimmed">
             No records match the current filters.
           </Text>
@@ -176,7 +262,6 @@ export function RecordsPage() {
                 <Table.Th>Date</Table.Th>
                 <Table.Th>Clergy</Table.Th>
                 <Table.Th>Status</Table.Th>
-                <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -201,15 +286,6 @@ export function RecordsPage() {
                       {record.status}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>
-                    <IconButton
-                      className="om-header-icon-btn"
-                      variant="quiet"
-                      accessibleLabel={`Delete ${record.personName}`}
-                      icon={<Trash2 size={14} aria-hidden />}
-                      onAction={() => setPendingDeleteId(record.id)}
-                    />
-                  </Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
@@ -229,42 +305,39 @@ export function RecordsPage() {
                   <Text size="sm" c="dimmed">
                     {record.date} · {record.clergy}
                   </Text>
-                  <Button
-                    className="om-btn-ghost"
-                    variant="secondary"
-                    size="sm"
-                    onAction={() => setPendingDeleteId(record.id)}
-                  >
-                    Delete
-                  </Button>
                 </Stack>
               </Card>
             ))}
           </SimpleGrid>
         )}
 
-        <AlertDialog
-          title="Delete record?"
-          description={
-            pending
-              ? `Remove “${pending.personName}” from the mock list? Editors are not yet available.`
-              : "Remove this record?"
-          }
-          confirmLabel="Delete"
-          cancelLabel="Cancel"
-          intent="destructive"
-          isOpen={pendingDeleteId !== null}
-          onOpenChange={(open) => {
-            if (!open) setPendingDeleteId(null);
-          }}
-          onConfirm={() => {
-            if (pendingDeleteId) {
-              setRecords((prev) => prev.filter((r) => r.id !== pendingDeleteId));
-            }
-            setPendingDeleteId(null);
-          }}
-          onCancel={() => setPendingDeleteId(null)}
-        />
+        {showPagination ? (
+          <Group justify="space-between" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              Page {String(page)} of {String(totalPages)}
+            </Text>
+            <Group gap="xs">
+              <Button
+                className="om-btn-ghost"
+                variant="secondary"
+                size="sm"
+                isDisabled={page <= 1 || listLoading}
+                onAction={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                className="om-btn-ghost"
+                variant="secondary"
+                size="sm"
+                isDisabled={page >= totalPages || listLoading}
+                onAction={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </Group>
+          </Group>
+        ) : null}
       </Stack>
     </PageLayout>
   );
