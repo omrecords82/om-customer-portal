@@ -11,6 +11,10 @@ type ImportMetaEnv = {
   readonly VITE_CEMETERY_MAP_ENABLED?: string;
   readonly VITE_CEMETERY_MAINTENANCE_ENABLED?: string;
   readonly VITE_CEMETERY_REPORTS_ENABLED?: string;
+  /** Records editor dual-run flags — per type, default false (Wave H). */
+  readonly VITE_PORTAL_RECORDS_EDITOR_BAPTISM?: string;
+  readonly VITE_PORTAL_RECORDS_EDITOR_MARRIAGE?: string;
+  readonly VITE_PORTAL_RECORDS_EDITOR_FUNERAL?: string;
 };
 
 type ImportMeta = {

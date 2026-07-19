@@ -478,6 +478,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Tenant-isolation tests exist — evidence: `recordsApi.test.ts` (`buildRecordsListUrl`, live fetch guardrails, single `church_id` across list endpoints); portal uses session `user.churchId` only (not URL `?churchId=`) — `docs/WAVE-H-RECORDS-GATES.md` §2
 - [x] Clergy, location, and related-record selection behavior is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §5 (`GET /api/lookup/clergy`, `/api/lookup/locations`, church-scoped search)
 - [x] Dual-run or rollback behavior against legacy editors is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §6 (per-type feature flags, legacy `/portal` fallback, deploy rollback)
+- [x] Portal dual-run flag plumbing (defaults off, no editor UI) — evidence: `recordsEditorFlags.ts` + `recordsEditorFlags.test.ts` (`VITE_PORTAL_RECORDS_EDITOR_*`, readiness gates, pilot conflict guard); `RecordsPage` gate note via `describeRecordsEditorGateStatus`
 - [x] Audit-logging requirements are defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §3 (`writeSacramentHistory`, `/:id/history`; no fake client audit; list reads not audited server-side today)
 
 **When authorized, implement in order — do not build all three simultaneously:**
@@ -492,7 +493,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] Baptism entry & edit flow on `@om/ui` + forms patterns
 - [ ] Marriage entry & edit flow (reuse baptism pattern)
 - [ ] Funeral entry & edit flow (reuse baptism pattern)
-- [ ] Drawer/Dialog edit hosts; dual-run feature flag vs legacy editors
+- [ ] Drawer/Dialog edit hosts; wire `canNavigateToRecordsEditor` when editor UI ships (dual-run flags ready in `recordsEditorFlags.ts`)
 - [ ] Tenant isolation tests mandatory
 
 **Dependencies:** Wave E deep links done; schema contract; live auth/church context; docs for permissions/audit/dual-run.  

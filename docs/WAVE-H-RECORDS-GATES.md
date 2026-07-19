@@ -110,10 +110,16 @@ Free-text entry remains allowed where legacy editors allow it; canonical entitie
 
 ### Dual-run (when Wave H editors ship)
 
-1. **Feature flag** (env or OM church feature — TBD with operator): e.g. `VITE_PORTAL_RECORDS_EDITOR=baptism|marriage|funeral|off` per type, default `off`.
+1. **Feature flags** (env overlays; optional OM church override later): per-type booleans in `src/features/records/recordsEditorFlags.ts`:
+   - `VITE_PORTAL_RECORDS_EDITOR_BAPTISM` (default `false`)
+   - `VITE_PORTAL_RECORDS_EDITOR_MARRIAGE` (default `false`)
+   - `VITE_PORTAL_RECORDS_EDITOR_FUNERAL` (default `false`)
+   - Helpers: `resolveRecordsEditorFlags`, `canShowRecordsEditor`, `isRecordsEditorReady`, `canNavigateToRecordsEditor` (requires `editorsUiShipped`), `buildLegacyRecordsEditorUrl`.
 2. **Legacy fallback:** `/portal/records/*` legacy SPA remains source of truth until flag on for pilot tenant.
 3. **Parity checks:** create → list appears → edit → history entry → delete (where allowed) on same `church_id`.
-4. **Order:** Baptism editor first; marriage/funeral reuse pattern — do not enable all three flags at once.
+4. **Order:** Baptism editor first; marriage/funeral reuse pattern — **do not enable more than one flag at a time** (`hasDualRunPilotConflict` blocks editor affordances when violated).
+
+**Portal wiring (2026-07-19):** flag module + tests shipped; `RecordsPage` shows `describeRecordsEditorGateStatus` note; editor routes/UI remain unshipped.
 
 ### Rollback
 
@@ -137,7 +143,7 @@ Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
 | Read/create/update/delete permission rules documented | **Closed** — §1 |
 | Tenant-isolation tests exist | **Closed** — `recordsApi.test.ts` |
 | Clergy / location / related-record selection defined | **Closed** — §5 |
-| Dual-run or rollback defined | **Closed** — §6 |
+| Dual-run or rollback defined | **Closed** — §6 + `recordsEditorFlags.ts` |
 | Audit-logging requirements defined | **Closed** — §3 |
 
 **Editors remain blocked** until operator re-authorizes Wave H after any remaining open gates (live pilot evidence + contracts).

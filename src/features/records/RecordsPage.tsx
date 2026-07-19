@@ -30,6 +30,10 @@ import {
   parseRecordsDeepLink,
   type RecordsTypeFilter,
 } from "./recordsDeepLink";
+import {
+  describeRecordsEditorGateStatus,
+  resolveRecordsEditorFlags,
+} from "./recordsEditorFlags";
 
 const TYPE_FILTER = [
   { value: "all", label: "All types" },
@@ -51,6 +55,11 @@ const PAGE_SIZE = 25;
  */
 export function RecordsPage() {
   const { user } = useAuth();
+  const editorFlags = useMemo(() => resolveRecordsEditorFlags(), []);
+  const editorGateNote = useMemo(
+    () => describeRecordsEditorGateStatus(editorFlags),
+    [editorFlags],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const parsed = useMemo(
     () => parseRecordsDeepLink(searchParams),
@@ -199,7 +208,7 @@ export function RecordsPage() {
   return (
     <PageLayout
       title="Records"
-      description="View baptisms, marriages, chrismations, and other sacramental records. List and search are live when authenticated; editors remain deferred to Wave H."
+      description="View baptisms, marriages, chrismations, and other sacramental records. List and search are live when authenticated; sacramental editors are dual-run gated until Wave H ships."
     >
       <Stack gap="md">
         <Group justify="space-between" wrap="wrap" align="flex-end">
@@ -238,9 +247,10 @@ export function RecordsPage() {
         </Group>
 
         <Text size="sm" c="dimmed">
-          {`${countLabel} · ${sourceLabel} · editors deferred to Wave H`}
+          {`${countLabel} · ${sourceLabel}`}
           {deepLinkNote}
         </Text>
+        <EditorGateNote note={editorGateNote} />
         {listNote ? (
           <Text size="sm" c="dimmed">
             {listNote}
@@ -340,5 +350,13 @@ export function RecordsPage() {
         ) : null}
       </Stack>
     </PageLayout>
+  );
+}
+
+function EditorGateNote({ note }: { readonly note: string }) {
+  return (
+    <Text size="sm" c="dimmed" role="note">
+      {note}
+    </Text>
   );
 }

@@ -52,6 +52,16 @@ VITE_PORTAL_BASE_PATH=/portal2 ./scripts/deploy-static.sh
 
 Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/api/auth/check`. Do **not** flip global login from `/portal` to `/portal2` without an explicit cutover decision.
 
+### Records editor dual-run (Wave H prep)
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `VITE_PORTAL_RECORDS_EDITOR_BAPTISM` | `false` | Enable baptism editor dual-run when UI ships |
+| `VITE_PORTAL_RECORDS_EDITOR_MARRIAGE` | `false` | Enable marriage editor dual-run when UI ships |
+| `VITE_PORTAL_RECORDS_EDITOR_FUNERAL` | `false` | Enable funeral editor dual-run when UI ships |
+
+Enable **at most one** type during pilot (Baptism first). See `docs/WAVE-H-RECORDS-GATES.md` and `recordsEditorFlags.ts`.
+
 Routes: `/portal2/auth/login`, `/auth/forgot-password`, `/auth/unauthorized`, `/account`.
 
 ## Stack ownership
