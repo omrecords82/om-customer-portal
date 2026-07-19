@@ -4,6 +4,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
+import { MemoryRouter } from "react-router";
 import { OnboardPage } from "./OnboardPage";
 import { portalTheme } from "../../theme/theme";
 
@@ -20,7 +21,9 @@ describe("OnboardPage", () => {
   it("renders portal preparation copy and steps", () => {
     render(
       <MantineProvider theme={portalTheme}>
-        <OnboardPage />
+        <MemoryRouter>
+          <OnboardPage />
+        </MemoryRouter>
       </MantineProvider>,
     );
 

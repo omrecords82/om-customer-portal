@@ -14,6 +14,9 @@ import { HomePage } from "../pages/HomePage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { portalBasePath } from "../config/basePath";
 import { OnboardPage } from "../features/onboard/OnboardPage";
+import { OnboardingChangePasswordPage } from "../features/onboard/OnboardingChangePasswordPage";
+import { OnboardingRecordLayoutsPage } from "../features/onboard/OnboardingRecordLayoutsPage";
+import { OnboardingRecordTablesPage } from "../features/onboard/OnboardingRecordTablesPage";
 import { OcrMobilePage } from "../features/ocr-mobile/OcrMobilePage";
 import { OcrDesktopPage } from "../features/ocr-desktop/OcrDesktopPage";
 import { AccountPage } from "../features/account/AccountPage";
@@ -71,6 +74,9 @@ const router = createBrowserRouter(
         { path: "cemetery", element: <CemeteryPage /> },
         { path: "certificates", element: <CertificatesPage /> },
         { path: "onboarding", element: <OnboardPage /> },
+        { path: "onboarding/change-password", element: <OnboardingChangePasswordPage /> },
+        { path: "onboarding/record-tables", element: <OnboardingRecordTablesPage /> },
+        { path: "onboarding/record-layouts", element: <OnboardingRecordLayoutsPage /> },
         { path: "settings/parish", element: <ParishSettingsPage /> },
         { path: "settings/users", element: <ParishUsersPage /> },
         { path: "settings/preferences", element: <PreferencesPage /> },

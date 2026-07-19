@@ -515,7 +515,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - Persisted onboarding progress  
 
 - [x] Adopt BP-3 (`om-onboard`) as the primary parish preparation / onboarding surface
-- [ ] Record-tables / record-layouts onboarding steps (beyond blueprint if still required)
+- [x] Record-tables / record-layouts onboarding steps (beyond blueprint if still required) — evidence: `/onboarding/change-password`, `/onboarding/record-tables`, `/onboarding/record-layouts` + `onboardWizardApi.ts` (live OM APIs; preview local persistence)
 - [x] Persist onboarding progress (live APIs) — **required before Wave K** — evidence: `onboardApi.ts` reads live checklist + `/me`; OM backend `GET /api/onboarding/provisioning-checklist` (read-only parish user)
 - [x] Public `/enroll` **explicitly excluded** from Customer Portal scope (handled outside this app)
 

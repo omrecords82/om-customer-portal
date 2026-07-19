@@ -8,9 +8,11 @@ import {
   Group,
   ThemeIcon,
 } from "@mantine/core";
+import { Button } from "@om/ui/button";
 import { useComputedColorScheme } from "@mantine/core";
 import { AlertCircle, Church, CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { PageLayout } from "../../components/PageLayout";
 import { authMode } from "../../auth/config";
 import {
@@ -22,6 +24,10 @@ import {
   type OnboardStep,
   type OnboardStepStatus,
 } from "./onboardApi";
+import {
+  fetchOnboardingMeSlice,
+  resolveFirstLoginWizardPath,
+} from "./onboardWizardApi";
 
 const LIVE_POLL_MS = 8_000;
 
@@ -59,6 +65,7 @@ function progressNote(
  * Live mode reads `/api/onboarding/provisioning-checklist` + `/api/onboarding/me`.
  */
 export function OnboardPage() {
+  const navigate = useNavigate();
   const colorScheme = useComputedColorScheme("light");
   const [steps, setSteps] = useState<OnboardStep[]>(() => {
     if (authMode === "live") return [];
@@ -71,12 +78,21 @@ export function OnboardPage() {
   const [checklistLive, setChecklistLive] = useState(false);
   const [loading, setLoading] = useState(authMode === "live");
   const [error, setError] = useState<string | null>(null);
+  const [wizardPath, setWizardPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (authMode !== "live") {
+      let previewCancelled = false;
+      void fetchOnboardingMeSlice().then((meResult) => {
+        if (previewCancelled || !meResult.ok) return;
+        setWizardPath(resolveFirstLoginWizardPath(meResult.data));
+      });
+
       const saved = readPersistedCursor();
       if (saved != null && saved >= PROVISIONING_STEP_DEFS.length) {
-        return;
+        return () => {
+          previewCancelled = true;
+        };
       }
       let cursor = saved == null ? 1 : Math.max(saved, 1);
       const timer = window.setInterval(() => {
@@ -89,13 +105,19 @@ export function OnboardPage() {
         }
         setSteps(stepsFromCursor(cursor));
       }, 2200);
-      return () => window.clearInterval(timer);
+      return () => {
+        previewCancelled = true;
+        window.clearInterval(timer);
+      };
     }
 
     let cancelled = false;
 
     async function loadLive() {
-      const result = await fetchOnboardProgress();
+      const [result, meResult] = await Promise.all([
+        fetchOnboardProgress(),
+        fetchOnboardingMeSlice(),
+      ]);
       if (cancelled) return;
       if (!result.ok) {
         setError(result.message);
@@ -106,6 +128,7 @@ export function OnboardPage() {
       setSteps([...result.steps]);
       setSource(result.source);
       setChecklistLive(result.checklistLive);
+      setWizardPath(meResult.ok ? resolveFirstLoginWizardPath(meResult.data) : null);
       setLoading(false);
     }
 
@@ -154,6 +177,23 @@ export function OnboardPage() {
           {error ? (
             <Alert color="red" variant="light" w="100%">
               {error}
+            </Alert>
+          ) : null}
+          {wizardPath ? (
+            <Alert variant="light" color="gold" w="100%">
+              <Stack gap="sm">
+                <Text size="sm">
+                  First-login setup is still required: password, record tables, and record layouts.
+                </Text>
+                <Button
+                  variant="primary"
+                  onAction={() => {
+                    void navigate(wizardPath);
+                  }}
+                >
+                  Continue first-login setup
+                </Button>
+              </Stack>
             </Alert>
           ) : null}
           <ThemeIcon size={56} radius="md" variant="light" color="navy">
