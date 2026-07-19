@@ -12,6 +12,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
 import { IconButton } from "@om/ui/icon-button";
 import {
@@ -23,10 +24,13 @@ import {
   List,
   Loader2,
   Plus,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
+import { filterBatches } from "./filterBatches";
+import type { Batch, BatchStatus, ProcessingMode } from "./types";
 
 type Screen =
   | "history"
@@ -35,28 +39,6 @@ type Screen =
   | "review"
   | "processing"
   | "results";
-
-type ProcessingMode = "standard" | "autoseed";
-
-type BatchStatus =
-  | "draft"
-  | "uploading"
-  | "processing"
-  | "ready-for-review"
-  | "completed"
-  | "failed";
-
-type Batch = {
-  readonly id: string;
-  readonly name: string;
-  readonly recordType: string;
-  readonly submitted: string;
-  readonly pages: number;
-  readonly records: number;
-  readonly mode: ProcessingMode;
-  readonly status: BatchStatus;
-  readonly needsReview: number;
-};
 
 const STATUS_LABEL: Record<BatchStatus, string> = {
   draft: "Draft",
@@ -67,7 +49,7 @@ const STATUS_LABEL: Record<BatchStatus, string> = {
   failed: "Failed",
 };
 
-const MOCK_BATCHES: Batch[] = [
+const INITIAL_BATCHES: Batch[] = [
   {
     id: "b1",
     name: "Baptism register 1920–1924",
@@ -123,6 +105,11 @@ const TEMPLATES = [
   { value: "handwritten-form", label: "Handwritten Form" },
 ];
 
+const STATUS_FILTER_DATA = [
+  { value: "all", label: "All statuses" },
+  ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+];
+
 function WizardRail({ current }: { current: number }) {
   return (
     <Group gap="sm" mb="md" wrap="wrap" aria-label="OCR desktop wizard steps">
@@ -172,12 +159,25 @@ function WizardRail({ current }: { current: number }) {
 export function OcrDesktopPage() {
   const [screen, setScreen] = useState<Screen>("history");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [batches, setBatches] = useState(INITIAL_BATCHES);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>("all");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [batchName, setBatchName] = useState("Baptism register upload");
   const [recordType, setRecordType] = useState<string | null>("Baptism");
   const [template, setTemplate] = useState<string | null>("standard-registry");
   const [mode, setMode] = useState<ProcessingMode>("standard");
   const [uploadedCount, setUploadedCount] = useState(0);
   const [procStep, setProcStep] = useState(0);
+
+  const filteredBatches = useMemo(
+    () =>
+      filterBatches(batches, {
+        query,
+        status: (statusFilter ?? "all") as BatchStatus | "all",
+      }),
+    [batches, query, statusFilter],
+  );
 
   const wizardIndex = useMemo(() => {
     const map: Record<Exclude<Screen, "history">, number> = {
@@ -199,6 +199,8 @@ export function OcrDesktopPage() {
     const t = window.setTimeout(() => setProcStep((s) => s + 1), 700);
     return () => window.clearTimeout(t);
   }, [screen, procStep]);
+
+  const pendingDelete = batches.find((b) => b.id === pendingDeleteId) ?? null;
 
   return (
     <PageLayout
@@ -227,13 +229,24 @@ export function OcrDesktopPage() {
 
       {screen === "history" && (
         <Stack gap="md">
-          <Group justify="space-between" wrap="wrap">
-            <TextInput
-              placeholder="Search batches"
-              aria-label="Search batches"
-              maw={280}
-              styles={{ input: { fontSize: 13.5 } }}
-            />
+          <Group justify="space-between" wrap="wrap" align="flex-end">
+            <Group gap="sm" wrap="wrap" align="flex-end">
+              <TextInput
+                placeholder="Search batches"
+                aria-label="Search batches"
+                value={query}
+                onChange={(event) => setQuery(event.currentTarget.value)}
+                maw={280}
+                styles={{ input: { fontSize: 13.5 } }}
+              />
+              <MantineSelect
+                aria-label="Filter by status"
+                data={STATUS_FILTER_DATA}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                maw={200}
+              />
+            </Group>
             <Group gap={4}>
               <IconButton
                 className="om-header-icon-btn"
@@ -252,6 +265,12 @@ export function OcrDesktopPage() {
             </Group>
           </Group>
 
+          {filteredBatches.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              No batches match the current filters.
+            </Text>
+          ) : null}
+
           {viewMode === "table" ? (
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
@@ -266,7 +285,7 @@ export function OcrDesktopPage() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {MOCK_BATCHES.map((batch) => (
+                {filteredBatches.map((batch) => (
                   <Table.Tr key={batch.id}>
                     <Table.Td>
                       <Text size="sm" fw={500}>
@@ -293,15 +312,24 @@ export function OcrDesktopPage() {
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      <Button
-                        className="om-btn-ghost"
-                        variant="secondary"
-                        size="sm"
-                        onAction={() => setScreen("review")}
-                      >
-                        <Eye size={14} aria-hidden />
-                        Open
-                      </Button>
+                      <Group gap={4} wrap="nowrap">
+                        <Button
+                          className="om-btn-ghost"
+                          variant="secondary"
+                          size="sm"
+                          onAction={() => setScreen("review")}
+                        >
+                          <Eye size={14} aria-hidden />
+                          Open
+                        </Button>
+                        <IconButton
+                          className="om-header-icon-btn"
+                          variant="quiet"
+                          accessibleLabel={`Delete ${batch.name}`}
+                          icon={<Trash2 size={14} aria-hidden />}
+                          onAction={() => setPendingDeleteId(batch.id)}
+                        />
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -309,7 +337,7 @@ export function OcrDesktopPage() {
             </Table>
           ) : (
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-              {MOCK_BATCHES.map((batch) => (
+              {filteredBatches.map((batch) => (
                 <Card key={batch.id} padding="md">
                   <Stack gap="xs">
                     <Text fw={500}>{batch.name}</Text>
@@ -323,19 +351,52 @@ export function OcrDesktopPage() {
                         ? ` · ${String(batch.needsReview)} need review`
                         : ""}
                     </Text>
-                    <Button
-                      className="om-btn-ghost"
-                      variant="secondary"
-                      size="sm"
-                      onAction={() => setScreen("configure")}
-                    >
-                      Continue
-                    </Button>
+                    <Group gap="sm">
+                      <Button
+                        className="om-btn-ghost"
+                        variant="secondary"
+                        size="sm"
+                        onAction={() => setScreen("configure")}
+                      >
+                        Continue
+                      </Button>
+                      <Button
+                        className="om-btn-ghost"
+                        variant="secondary"
+                        size="sm"
+                        onAction={() => setPendingDeleteId(batch.id)}
+                      >
+                        Delete
+                      </Button>
+                    </Group>
                   </Stack>
                 </Card>
               ))}
             </SimpleGrid>
           )}
+
+          <AlertDialog
+            title="Delete batch?"
+            description={
+              pendingDelete
+                ? `Remove “${pendingDelete.name}” from history? This mock action cannot be undone.`
+                : "Remove this batch from history?"
+            }
+            confirmLabel="Delete batch"
+            cancelLabel="Cancel"
+            intent="destructive"
+            isOpen={pendingDeleteId !== null}
+            onOpenChange={(open) => {
+              if (!open) setPendingDeleteId(null);
+            }}
+            onConfirm={() => {
+              if (pendingDeleteId) {
+                setBatches((prev) => prev.filter((b) => b.id !== pendingDeleteId));
+              }
+              setPendingDeleteId(null);
+            }}
+            onCancel={() => setPendingDeleteId(null)}
+          />
         </Stack>
       )}
 
@@ -546,7 +607,7 @@ export function OcrDesktopPage() {
               </Title>
             </Group>
             <Text size="sm" c="dimmed">
-              {batchName} finished mock OCR. Wire real APIs after portal auth (Wave B).
+              {batchName} finished mock OCR. Live job APIs ship after Wave B session hardening.
             </Text>
             <Group gap="sm">
               <Button className="om-btn-ghost" variant="secondary" size="sm" onAction={() => setScreen("history")}>

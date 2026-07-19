@@ -10,9 +10,10 @@ import {
   Separator,
   Button,
 } from "react-aria-components";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Menu as MenuIcon, Sun, Moon, ChevronDown, User, Settings, LogOut } from "lucide-react";
-import { currentUser } from "../data/session";
+import { useAuth } from "../auth/AuthProvider";
+import { FALLBACK_USER } from "../data/session";
 import { PAGE_TITLES } from "../config/navConfig";
 
 type TopHeaderProps = {
@@ -30,8 +31,14 @@ export function TopHeader({
 }: TopHeaderProps) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const pageTitle = PAGE_TITLES[location.pathname] ?? "";
+
+  const displayName = user?.displayName ?? FALLBACK_USER.name;
+  const displayRole = user?.role ?? FALLBACK_USER.role;
+  const initials = user?.initials ?? FALLBACK_USER.initials;
 
   function handleBurgerPress() {
     if (isMobile === true) {
@@ -112,14 +119,14 @@ export function TopHeader({
               }}
               aria-hidden="true"
             >
-              {currentUser.initials}
+              {initials}
             </Box>
             <Box visibleFrom="sm" style={{ textAlign: "left" }}>
               <Text size="xs" fw={500} style={{ lineHeight: 1.25 }}>
-                {currentUser.name}
+                {displayName}
               </Text>
               <Text size="xs" c="dimmed" style={{ lineHeight: 1.2 }}>
-                {currentUser.role}
+                {displayRole}
               </Text>
             </Box>
             <ChevronDown size={12} aria-hidden="true" />
@@ -139,7 +146,9 @@ export function TopHeader({
               <MenuItem
                 className="om-menu-item om-menu-item--danger"
                 onAction={() => {
-                  return undefined;
+                  void logout().then(() => {
+                    void navigate("/auth/login");
+                  });
                 }}
               >
                 <LogOut size={14} aria-hidden="true" />

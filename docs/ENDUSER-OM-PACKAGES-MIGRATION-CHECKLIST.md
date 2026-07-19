@@ -38,8 +38,8 @@
   - `"@om/ui": "npm:@omrecords82/ui@0.1.0"`
 - [x] **Customer Portal `.npmrc`** — `@omrecords82:registry=https://npm.pkg.github.com` (token via user/CI `~/.npmrc` / `NODE_AUTH_TOKEN`; never commit secrets).
 - [x] **Legacy OM front-end also pinned** (reference / parallel consumers) — PR #1003. Not the build target of this checklist.
-- [ ] **CI for `om-customer-portal`** — install/lint/typecheck/test/build with Node 24.18 + pnpm 11.10 + `NODE_AUTH_TOKEN` (`read:packages`).
-- [ ] **Deploy pipeline** — reproducible `pnpm build` with `VITE_PORTAL_BASE_PATH=/portal2` + rsync to `/var/www/orthodoxmetrics/portal` (scripted; no source copy into deploy dir).
+- [x] **CI for `om-customer-portal`** — install/lint/typecheck/test/build with Node 24.18 + pnpm 11.10 + `NODE_AUTH_TOKEN` (`read:packages`).
+- [x] **Deploy pipeline** — reproducible `pnpm build` with `VITE_PORTAL_BASE_PATH=/portal2` + rsync to `/var/www/orthodoxmetrics/portal` (scripted; no source copy into deploy dir).
 - [ ] **Version bump cadence** — when om-packages ships `0.1.x` / `0.2.0`, bump Customer Portal aliases in the same PR that consumes new APIs.
 
 ### 0.2 App shell & style ownership (Customer Portal)
@@ -166,12 +166,12 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Parity reference:** legacy `/auth/*`, Wave 1 files in `features/auth/**` (patterns only).
 
-- [ ] Session client aligned with OM auth APIs (cookies/CSRF as required) — app data layer
-- [ ] Login, forgot password, verify email, accept invite, unauthorized/error pages in Customer Portal
-- [ ] Post-login routing **flagged**: stay on `/portal2` for pilot tenants; do not globally flip legacy `/portal` yet
-- [ ] Account password change / sessions list (using `@om/ui` Dialog/TextField/Button)
-- [ ] GAP-FORM-ALERT interim: FieldError-only until package ships
-- [ ] SPA links via basename-aware adapter (app-owned until GAP-LINK-ROUTER)
+- [x] Session client aligned with OM auth APIs (cookies/CSRF as required) — app data layer (`mock` default / `live` mode)
+- [x] Login, forgot password, unauthorized pages in Customer Portal (verify email / accept invite still open)
+- [x] Post-login routing **flagged**: stay on `/portal2` for pilot tenants; do not globally flip legacy `/portal` yet
+- [x] Account password change dialog (mock) + profile surface; sessions list still open
+- [x] GAP-FORM-ALERT interim: FieldError-only until package ships
+- [ ] SPA links via basename-aware adapter (app-owned until GAP-LINK-ROUTER) — shell still uses RAC `RouterProvider` + `Link`
 
 **Do not:** mutate legacy auth forms as the destination; do not put Keycloak/OIDC logic into `@om/ui`.
 
@@ -259,7 +259,7 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 - [x] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
 - [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
-- [x] Job history list + filters; batch actions with AlertDialog confirms — history/actions present; AlertDialog polish remaining
+- [x] Job history list + filters; batch actions with AlertDialog confirms
 - [ ] Integrate with existing OM OCR job APIs (parity with legacy `PortalOcrDesktopApp` behavior, new UI only)
 - [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 

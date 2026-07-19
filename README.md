@@ -43,6 +43,17 @@ pnpm deploy:static
 VITE_PORTAL_BASE_PATH=/portal2 ./scripts/deploy-static.sh
 ```
 
+## Auth modes (Wave B)
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `VITE_PORTAL_AUTH_MODE` | `mock` | Local session for `/portal2` pilots |
+| `VITE_PORTAL_REQUIRE_AUTH` | `false` | When `true`, shell routes redirect to `/auth/login` |
+
+Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/api/auth/check`. Do **not** flip global login from `/portal` to `/portal2` without an explicit cutover decision.
+
+Routes: `/portal2/auth/login`, `/auth/forgot-password`, `/auth/unauthorized`, `/account`.
+
 ## Stack ownership
 
 - **Mantine** — layout, surfaces, spacing, typography, responsive shell

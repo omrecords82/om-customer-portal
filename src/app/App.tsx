@@ -16,6 +16,12 @@ import { portalBasePath } from "../config/basePath";
 import { OnboardPage } from "../features/onboard/OnboardPage";
 import { OcrMobilePage } from "../features/ocr-mobile/OcrMobilePage";
 import { OcrDesktopPage } from "../features/ocr-desktop/OcrDesktopPage";
+import { AccountPage } from "../features/account/AccountPage";
+import { LoginPage } from "../features/auth/LoginPage";
+import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
+import { UnauthorizedPage } from "../features/auth/UnauthorizedPage";
+import { AuthProvider } from "../auth/AuthProvider";
+import { RequireAuth } from "../auth/RequireAuth";
 import { getNavItem } from "../config/navConfig";
 import type { PortalHref } from "../config/navConfig";
 
@@ -36,8 +42,24 @@ function placeholderFor(href: PortalHref) {
 const router = createBrowserRouter(
   [
     {
+      path: "/auth/login",
+      element: <LoginPage />,
+    },
+    {
+      path: "/auth/forgot-password",
+      element: <ForgotPasswordPage />,
+    },
+    {
+      path: "/auth/unauthorized",
+      element: <UnauthorizedPage />,
+    },
+    {
       path: "/",
-      element: <PortalShell />,
+      element: (
+        <RequireAuth>
+          <PortalShell />
+        </RequireAuth>
+      ),
       children: [
         { index: true, element: <HomePage /> },
         { path: "records", element: placeholderFor("/records") },
@@ -48,7 +70,7 @@ const router = createBrowserRouter(
         { path: "certificates", element: placeholderFor("/certificates") },
         { path: "onboarding", element: <OnboardPage /> },
         { path: "help", element: placeholderFor("/help") },
-        { path: "account", element: placeholderFor("/account") },
+        { path: "account", element: <AccountPage /> },
         {
           path: "*",
           element: (
@@ -71,7 +93,9 @@ export default function App() {
   return (
     <MantineProvider theme={portalTheme} defaultColorScheme="light">
       <OmThemeSync />
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
     </MantineProvider>
   );
 }
