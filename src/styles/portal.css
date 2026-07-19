@@ -117,7 +117,7 @@
   gap: 6px;
   padding: 8px 16px;
   min-height: unset;
-  background: var(--mantine-color-navy-7);
+  background: var(--om-brand-navy-7);
   color: var(--mantine-color-white);
   border: none;
   border-radius: var(--mantine-radius-sm);
@@ -134,12 +134,12 @@
 .om-btn-primary.om-button[data-hovered]:not([data-disabled], [data-om-pending]),
 .om-btn-primary[data-hovered],
 .om-btn-primary:hover {
-  background: var(--mantine-color-navy-8);
+  background: var(--om-brand-navy-8);
 }
 
 .om-btn-primary.om-button[data-focus-visible],
 .om-btn-primary[data-focus-visible] {
-  outline: 2px solid var(--mantine-color-gold-5);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--om-brand-gold-5));
   outline-offset: 2px;
 }
 

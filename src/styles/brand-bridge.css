@@ -1,0 +1,38 @@
+/* Orthodox Metrics portal brand bridge (Wave J / GAP-BRAND-TOKENS partial).
+   Maps published @om/tokens component/semantic variables to OM navy/gold chrome.
+   Navy/gold primitives and sidebar surface family remain portal-local until
+   @om/tokens publishes brand-pack + navigation shell semantics. */
+
+@layer om.brand {
+  :root {
+    /* Deferred until tokens publish brand primitives (GAP-BRAND-TOKENS) */
+    --om-brand-navy-0: var(--mantine-color-navy-0);
+    --om-brand-navy-7: var(--mantine-color-navy-7);
+    --om-brand-navy-8: var(--mantine-color-navy-8);
+    --om-brand-navy-9: var(--mantine-color-navy-9);
+    --om-brand-gold-5: var(--mantine-color-gold-5);
+    --om-brand-gold-6: var(--mantine-color-gold-6);
+
+    /* Published component tokens → OM gold accent (shell chrome only) */
+    --om-component-navigation-active-indicator: var(--om-brand-gold-5);
+    --om-component-header-accent: var(--om-brand-gold-5);
+    --om-component-footer-accent: var(--om-brand-gold-5);
+
+    /* Published semantic token → OM gold focus (shell + portal overrides) */
+    --om-semantic-focus-ring: var(--om-brand-gold-5);
+
+    /* Sidebar surface family — deferred until navigation shell tokens ship */
+    --om-sidebar-bg: var(--om-brand-navy-7);
+    --om-sidebar-border: rgba(255, 255, 255, 0.09);
+    --om-sidebar-surface: rgba(255, 255, 255, 0.11);
+    --om-sidebar-text: rgba(255, 255, 255, 0.62);
+    --om-sidebar-text-hover: rgba(255, 255, 255, 0.9);
+    --om-sidebar-text-muted: rgba(255, 255, 255, 0.45);
+    --om-sidebar-text-faint: rgba(255, 255, 255, 0.28);
+    --om-sidebar-accent: var(--om-component-navigation-active-indicator);
+  }
+
+  [data-mantine-color-scheme="dark"] {
+    --om-sidebar-bg: var(--om-brand-navy-9);
+  }
+}

@@ -107,7 +107,7 @@ export function TopHeader({
                 width: 26,
                 height: 26,
                 borderRadius: "50%",
-                background: "var(--mantine-color-gold-5)",
+                background: "var(--om-component-header-accent, var(--om-brand-gold-5))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

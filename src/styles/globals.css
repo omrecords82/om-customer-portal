@@ -1,20 +1,6 @@
 :root {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-
-  /* Portal-local sidebar palette — no matching @om/tokens navy/gold/sidebar surface yet */
-  --om-sidebar-bg: var(--mantine-color-navy-7);
-  --om-sidebar-border: rgba(255, 255, 255, 0.09);
-  --om-sidebar-surface: rgba(255, 255, 255, 0.11);
-  --om-sidebar-text: rgba(255, 255, 255, 0.62);
-  --om-sidebar-text-hover: rgba(255, 255, 255, 0.90);
-  --om-sidebar-text-muted: rgba(255, 255, 255, 0.45);
-  --om-sidebar-text-faint: rgba(255, 255, 255, 0.28);
-  --om-sidebar-accent: var(--mantine-color-gold-5);
-}
-
-[data-mantine-color-scheme="dark"] {
-  --om-sidebar-bg: var(--mantine-color-navy-9);
 }
 
 *,

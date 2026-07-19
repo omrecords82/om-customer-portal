@@ -6,7 +6,7 @@
   z-index: 4000;
   padding: 8px 12px;
   border-radius: 4px;
-  background: var(--mantine-color-navy-7);
+  background: var(--om-brand-navy-7);
   color: var(--mantine-color-white) !important;
   font-size: 13px;
   font-weight: 500;
@@ -17,7 +17,7 @@
 
 .om-skip-link:focus {
   transform: translateY(0);
-  outline: 2px solid var(--mantine-color-gold-5);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--om-brand-gold-5));
   outline-offset: 2px;
 }
 

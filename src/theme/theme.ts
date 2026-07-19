@@ -30,8 +30,9 @@ const gold: MantineColorsTuple = [
 /**
  * Mantine remains the layout/presentation adapter.
  * Where `@om/tokens` already exposes an equivalent primitive, theme values
- * reference those CSS variables. Brand navy/gold and display typography stay
- * Portal-local until matching OM tokens exist.
+ * reference those CSS variables. Navy/gold chrome is bridged in
+ * `src/styles/brand-bridge.css` (Wave J); full brand-pack cutover awaits
+ * GAP-BRAND-TOKENS publication in @om/tokens.
  */
 export const portalTheme = createTheme({
   fontFamily:

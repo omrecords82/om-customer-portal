@@ -86,11 +86,11 @@ Permanent ownership model:
 | Layout, surfaces, spacing, typography chrome, responsive shell | **Mantine** (app) |
 | Direct `react-aria-components` | Only where `@om/ui` lacks capability (**allowlisted**, temporary waived gaps — see §2.2) |
 
-- [x] **Global CSS order** — Mantine → `@om/tokens/css` → `@om/ui/css` → portal overrides (`src/app/App.tsx`).
+- [x] **Global CSS order** — Mantine → `@om/tokens/css` → `brand-bridge.css` → `@om/ui/css` → portal overrides (`src/app/App.tsx`).
 - [x] **Theme sync** — `OmThemeSync` mirrors Mantine scheme onto `document.documentElement.dataset.omTheme`.
 - [x] **ESLint prohibited stacks** — no MUI / Emotion / Radix / Tailwind / shadcn / Bootstrap / Chakra / Ant; RAC allowlisted only in documented shell files.
 - [x] **Temporary shell RAC adapters approved (operator 2026-07-19)** — sidebar router Link, Aria `RouterProvider`, account Menu may remain **application-owned**, narrowly scoped, documented, ESLint-allowlisted; **not** exported as Portal primitive APIs; **no** RAC types in public interfaces. Do **not** invent fake `@om/ui` wrappers solely to remove imports.
-- [ ] **Theme bridge completeness** — map remaining portal-local navy/gold/sidebar vars onto published tokens when packages gain brand/sidebar semantics (do not invent tokens in the app). Post-MVP brand cleanup is explicitly allowed after cutover (see Wave J / Wave K).
+- [x] **Theme bridge completeness (partial Wave J)** — `brand-bridge.css` maps published component/semantic tokens to OM gold focus/accent; navy/gold primitives + sidebar rgba surfaces remain Mantine-sourced bridge aliases until `@om/tokens` brand-pack ships (GAP-BRAND-TOKENS). Post-MVP full cutover still allowed (Wave K).
 - [ ] **Liturgical / accessibility token layers** — adopt `@om/tokens/css/liturgical` and `css/accessibility` when post-MVP calendar / a11y finish needs them (Wave J). **Does not block MVP cutover.**
 
 ### 0.3 Governance
@@ -157,7 +157,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 | GAP-CHECKBOX-GROUP | CheckboxGroup | Settings/forms | Medium |
 | GAP-TABLE-BASIC-UX | Sort/filter/pagination **or** `@om/tables` split | Lists | Medium |
 | GAP-SELECT-ASYNC | Async ComboBox pattern | Records/certificates filters | Medium |
-| GAP-BRAND-TOKENS | Navy/gold/sidebar/semantic brand packs | Token cutover from portal-local CSS | Medium; complete cleanup **post-MVP allowed** |
+| GAP-BRAND-TOKENS | Navy/gold/sidebar/semantic brand packs | Token cutover from portal-local CSS | **Partial (Wave J)** — component/semantic bridge shipped; primitives + sidebar surfaces deferred |
 | GAP-BUTTON-ICON-SLOT | Leading/trailing icon slot | Hub tiles/CTAs | Low |
 
 #### 2.2.1 Notification responsibility split (OQ-2 **DECIDED**)
@@ -535,7 +535,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 **Post-MVP note:** Complete brand-token cleanup, `@om/icons` unification, and liturgical token/calendar surfaces are **explicitly allowed post-MVP** and must not block Wave K if MVP pathways otherwise pass. Liturgical calendar work here aligns with Wave G **POST-MVP** scheduling.
 
-- [ ] Consume brand/sidebar tokens once published (GAP-BRAND-TOKENS) — cleanup may complete post-MVP
+- [x] Consume brand/sidebar tokens once published (GAP-BRAND-TOKENS) — **partial bridge shipped** (`brand-bridge.css`); navy/gold primitives + sidebar rgba surfaces remain deferred until brand-pack publication; full cleanup post-MVP OK
 - [ ] Liturgical token layer for calendar surfaces — **POST-MVP** with liturgical calendar
 - [ ] `@om/icons` adoption after audit (do not mix Tabler/MUI/lucide casually) — **post-MVP allowed**
 - [ ] forced-colors / accessibility CSS wired
@@ -627,7 +627,7 @@ All must be true for **global** readiness (Wave K). Pilot live auth may proceed 
 2. [ ] Interactive controls on that surface are `@om/ui` (or promoted `@om/forms` / domain packages); Mantine is shell-only; RAC only behind **documented temporary waivers** or closed gaps; **no Tailwind blueprint ports**.
 2b. [x] Blueprints `om-ocr-mobile`, `om-ocr-desktop`, and `om-onboard` are implemented **and** operator visual QA is signed off (Wave BP) — **APPROVED** 2026-07-19. Live OCR APIs for cutover MVP remain separate (Wave K / live OCR items).
 3. [ ] No prohibited UI libraries in Customer Portal (including no local toast / Sonner / Mantine Notifications).
-4. [ ] Tokens resolve via `@om/tokens` for shared semantics; remaining portal-local values documented with package follow-ups (full brand cleanup may be post-MVP).
+4. [x] Tokens resolve via `@om/tokens` for shared semantics; remaining portal-local values documented with package follow-ups in `brandTokens.ts` / `om-package-integration.md` (full brand cleanup may be post-MVP).
 5. [ ] Login cutover complete for target tenants per Wave K evidence; legacy `/portal` end-user SPA frozen, redirected, retired, or explicitly deferred with disposition.
 6. [ ] a11y + responsive + i18n checks signed for MVP paths.
 7. [ ] CI green with Packages auth; pinned `@omrecords82/*` versions; deploy script/docs current.

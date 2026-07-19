@@ -16,8 +16,9 @@ Defined in `src/app/App.tsx`:
 
 1. `@mantine/core/styles.css`
 2. `@om/tokens/css`
-3. `@om/ui/css`
-4. Portal overrides (`../styles/portal.css`)
+3. `src/styles/brand-bridge.css` (`@layer om.brand` — OM navy/gold bridge)
+4. `@om/ui/css`
+5. Portal overrides (`../styles/portal.css`)
 
 `OmThemeSync` mirrors Mantine light/dark onto `document.documentElement.dataset.omTheme` so `@om/tokens` `[data-om-theme]` selectors resolve.
 
@@ -29,7 +30,7 @@ Defined in `src/app/App.tsx`:
 | Shared interactive controls | `@om/ui` |
 | Shared TypeScript contracts | `@om/contracts` |
 | Shell layout, surfaces, spacing, typography, responsive composition | Mantine |
-| Portal-brand chrome (navy/gold sidebar, display fonts) | Portal-local until OM tokens exist |
+| Portal-brand chrome (navy/gold sidebar, display fonts) | `brand-bridge.css` + Mantine until `@om/tokens` brand-pack ships |
 | Direct React Aria Components | Only where `@om/ui` lacks a required capability |
 
 ## Migrated to `@om/ui`
@@ -62,18 +63,28 @@ Portal CSS class overrides keep the previous navy / quiet chrome look on top of 
 | --- | --- |
 | Mantine `spacing.md` | `--om-primitive-space-4` |
 | Mantine `radius.sm` | `--om-primitive-radius-2` |
-| Focus rings (header/sidebar/ghost) | `--om-semantic-focus-ring` (fallback to prior Mantine/portal values) |
+| Focus rings (header/sidebar/ghost/primary CTA) | `--om-semantic-focus-ring` → `--om-brand-gold-5` in `@layer om.brand` |
 | Borders (ghost button, menu popover/sep, header divider) | `--om-semantic-border-decorative` (fallback to Mantine border) |
+| Sidebar active indicator / accent | `--om-component-navigation-active-indicator` → `--om-brand-gold-5` |
+| Header avatar accent | `--om-component-header-accent` → `--om-brand-gold-5` |
+| Primary CTA navy background | `--om-brand-navy-7` / `--om-brand-navy-8` (Mantine-sourced bridge aliases) |
+| Sidebar surfaces (`--om-sidebar-*`) | Portal bridge vars in `brand-bridge.css`; cutover when navigation shell tokens ship |
+
+## Wave J brand bridge (`src/styles/brand-bridge.css`)
+
+Partial GAP-BRAND-TOKENS cutover (2026-07-19): published component/semantic tokens are overridden in `@layer om.brand` to OM gold focus/accent without adopting bootstrap red `--om-semantic-action-accent`. Navy/gold primitives and sidebar rgba surfaces remain Mantine-sourced bridge aliases until `@om/tokens` publishes brand-pack + navigation shell semantics.
+
+Inventory helper: `src/theme/brandTokens.ts` (`BRIDGED_OM_TOKEN_PATHS`, `DEFERRED_BRAND_CSS_VARS`).
 
 ## Portal-local values not yet mappable
 
 | Value | Reason |
 | --- | --- |
-| Navy / gold Mantine color tuples | No `--om-*-navy` / brand gold palette in published tokens |
-| Sidebar CSS vars (`--om-sidebar-*`) | No sidebar/nav surface token family yet |
+| Navy / gold primitive scales (`--om-brand-navy-*`, `--om-brand-gold-*`) | No published navy/gold primitives in `@om/tokens@0.1.0`; bridge aliases Mantine tuples |
+| Sidebar rgba surfaces (`--om-sidebar-border`, `--om-sidebar-text*`) | No navigation shell / sidebar token family yet |
 | Inter / Crimson Pro / JetBrains Mono | Tokens only expose `system-ui` sans primitive |
 | Soft elevation shadows (`mantine-shadow-*`) | Tokens currently expose `--om-primitive-shadow-none` only |
-| Primary CTA navy/gold focus styling | OM primary action accent is bootstrap red, overridden by Portal CSS |
+| Primary semantic action accent (`--om-semantic-action-accent`) | Bootstrap red in package; portal shell CSS owns navy CTAs instead |
 
 ## Follow-ups for `om-packages` (out of scope here)
 
