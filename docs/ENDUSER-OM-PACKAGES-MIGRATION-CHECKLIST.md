@@ -409,11 +409,11 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] **Assets library** browse/collections + AlertDialog confirms — **DEFERRED PRIORITY** (behind live auth, OCR APIs, records deep links, Wave H path, cemetery MVP, live certificates). Raise only if an active customer depends on it for routine operations. **Not a current program blocker.**
 - [x] Certificates: list, generate form chrome, history table; designer canvas app-owned
 - [x] Live certificate **history** where currently customer-used — evidence: `certificatesApi.ts` + `CertificatesPage` wire `GET /api/certificates/history` (+ authenticated `GET …/history/:id/download`) when `AUTH_MODE=live` + churchId; honest empty/error otherwise; pure helpers covered in `certificatesApi.test.ts`
-- [ ] Live certificate **generation/render** (**required before Wave K** where applicable) — **deferred with clear messaging**: `POST /api/certificates/render` needs `template_id` + `record_id` (Certificate Studio); recipient-only draft chrome must not invent those ids. Canvas/designer remains app-owned.
+- [x] Live certificate **generation/render** — evidence: `CertificatesPage` picks certificate type + `template_id` + `record_id` (selects from `GET /api/certificates/templates` + `GET /api/certificates/records/:type`, or manual id fields); live + churchId calls `POST /api/certificates/render`; surfaces success/error honestly (incl. `missing_fields`); download/history link when `history_id` returned; mock mode refuses with clear messaging (no fake live success). Pure builders/parsers in `certificatesApi.test.ts`. Canvas/designer remains app-owned / deferred.
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
-**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves. Full live generate remains open until studio render (template+record) is productized in portal chrome.
+**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves. Certificate generate/render chrome is live-ready; assets + interactive reports remain deferred.
 
 ---
 

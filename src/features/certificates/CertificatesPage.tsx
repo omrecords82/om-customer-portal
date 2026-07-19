@@ -2,14 +2,15 @@ import {
   Badge,
   Card,
   Group,
+  Select as MantineSelect,
   Stack,
   Table,
   Text,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { Button } from "@om/ui/button";
-import { TextField } from "@om/ui/text-field";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
@@ -17,7 +18,12 @@ import { PageLayout } from "../../components/PageLayout";
 import {
   downloadCertificatePdf,
   fetchCertificateHistory,
-  startCertificateDraft,
+  fetchCertificateRecords,
+  fetchCertificateTemplates,
+  renderCertificate,
+  type CertificateRecordOption,
+  type CertificateStudioType,
+  type CertificateTemplateOption,
 } from "./certificatesApi";
 import type { CertificateKind, CertificateRow } from "./certificatesData";
 
@@ -28,13 +34,18 @@ const KIND_LABEL: Record<CertificateKind, string> = {
   reception: "Reception",
 };
 
+const STUDIO_TYPE_OPTIONS: { value: CertificateStudioType; label: string }[] = [
+  { value: "baptism", label: "Baptism" },
+  { value: "marriage", label: "Marriage" },
+  { value: "reception", label: "Reception" },
+];
+
 /**
- * Wave F — certificates list / generate chrome + live history.
- * Designer canvas stays app-owned (deferred); render needs studio template+record.
+ * Wave F — certificates list / generate chrome + live history + render.
+ * Designer canvas stays app-owned (deferred).
  */
 export function CertificatesPage() {
   const { user } = useAuth();
-  const [recipient, setRecipient] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [rows, setRows] = useState<readonly CertificateRow[]>([]);
   const [historySource, setHistorySource] = useState<"mock" | "live" | "empty">(
@@ -43,6 +54,49 @@ export function CertificatesPage() {
   const [historyNote, setHistoryNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const [certType, setCertType] = useState<CertificateStudioType>("baptism");
+  const [templates, setTemplates] = useState<
+    readonly CertificateTemplateOption[]
+  >([]);
+  const [templatesNote, setTemplatesNote] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState("");
+  const [records, setRecords] = useState<readonly CertificateRecordOption[]>(
+    [],
+  );
+  const [recordsNote, setRecordsNote] = useState<string | null>(null);
+  const [recordId, setRecordId] = useState("");
+  const [recordSearch, setRecordSearch] = useState("");
+  const [listsLoading, setListsLoading] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [lastHistoryId, setLastHistoryId] = useState<number | null>(null);
+
+  const reloadHistory = useCallback(() => {
+    setLoading(true);
+    void fetchCertificateHistory(user?.churchId).then((result) => {
+      setLoading(false);
+      if (!result.ok) {
+        setRows([]);
+        setHistorySource("empty");
+        setHistoryNote(result.message);
+        return;
+      }
+      setRows(result.rows);
+      if (result.source === "live") {
+        setHistorySource(result.rows.length === 0 ? "empty" : "live");
+        setHistoryNote(
+          result.rows.length === 0
+            ? "No certificate history for this church yet."
+            : null,
+        );
+      } else {
+        setHistorySource("mock");
+        setHistoryNote(
+          "Preview rows (mock). Live history uses GET /api/certificates/history when AUTH_MODE=live and church context is present.",
+        );
+      }
+    });
+  }, [user?.churchId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +131,139 @@ export function CertificatesPage() {
     };
   }, [user?.churchId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- template picker bootstrap
+    setListsLoading(true);
+    setTemplateId("");
+    setRecordId("");
+    void fetchCertificateTemplates({
+      ...(user?.churchId != null ? { churchId: user.churchId } : {}),
+      certificateType: certType,
+    }).then((tplResult) => {
+      if (cancelled) return;
+      setListsLoading(false);
+      if (!tplResult.ok) {
+        setTemplates([]);
+        setTemplatesNote(tplResult.message);
+        return;
+      }
+      setTemplates(tplResult.templates);
+      if (tplResult.source === "mock") {
+        setTemplatesNote(
+          "Preview mode: template list is empty. Enter a template id manually, or switch AUTH_MODE=live with church context.",
+        );
+      } else if (tplResult.templates.length === 0) {
+        setTemplatesNote(
+          "No active templates for this type. Enter a template id, or create one in Certificate Studio.",
+        );
+      } else {
+        setTemplatesNote(null);
+        const def = tplResult.templates.find((t) => t.isDefault);
+        if (def) setTemplateId(String(def.id));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.churchId, certType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- record picker bootstrap
+    setListsLoading(true);
+    void fetchCertificateRecords({
+      ...(user?.churchId != null ? { churchId: user.churchId } : {}),
+      certificateType: certType,
+      search: recordSearch,
+    }).then((recResult) => {
+      if (cancelled) return;
+      setListsLoading(false);
+      if (!recResult.ok) {
+        setRecords([]);
+        setRecordsNote(recResult.message);
+        return;
+      }
+      setRecords(recResult.records);
+      if (recResult.source === "mock") {
+        setRecordsNote(
+          "Preview mode: record list is empty. Enter a record id manually, or switch AUTH_MODE=live with church context.",
+        );
+      } else if (recResult.records.length === 0) {
+        setRecordsNote(
+          "No matching records. Adjust search or enter a record id.",
+        );
+      } else {
+        setRecordsNote(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.churchId, certType, recordSearch]);
+
   const liveHistory = historySource === "live" && authMode === "live";
+  const canRender =
+    Boolean(templateId.trim()) &&
+    Boolean(recordId.trim()) &&
+    !rendering;
+
+  const templateSelectData = templates.map((t) => ({
+    value: String(t.id),
+    label: `${t.name}${t.isDefault ? " (Default)" : ""}${
+      t.scopeLabel === "global" ? " — Global" : ""
+    }`,
+  }));
+
+  const recordSelectData = records.map((r) => ({
+    value: String(r.id),
+    label: r.dateLabel ? `${r.label} · ${r.dateLabel}` : r.label,
+  }));
+
+  function handleRender(force = false) {
+    setRendering(true);
+    setStatus(null);
+    setLastHistoryId(null);
+    void renderCertificate({
+      templateId,
+      recordId,
+      certificateType: certType,
+      ...(user?.churchId != null ? { churchId: user.churchId } : {}),
+      ...(force ? { force: true } : {}),
+    }).then((result) => {
+      setRendering(false);
+      if (!result.ok) {
+        const missing =
+          result.missingFields?.length
+            ? ` Missing: ${result.missingFields.join(", ")}.`
+            : "";
+        setStatus(`${result.message}${missing}`);
+        return;
+      }
+      const { historyId, jobId, status: renderStatus } = result.result;
+      setLastHistoryId(historyId);
+      const parts = [
+        `Certificate rendered (${renderStatus}).`,
+        historyId != null ? `History #${String(historyId)}.` : null,
+        jobId != null ? `Job #${String(jobId)}.` : null,
+      ].filter(Boolean);
+      setStatus(parts.join(" "));
+      reloadHistory();
+      if (historyId != null) {
+        void downloadCertificatePdf(
+          historyId,
+          `certificate-${String(historyId)}.pdf`,
+        ).then((dl) => {
+          if (!dl.ok) {
+            setStatus(
+              (prev) =>
+                `${prev ?? ""} Download deferred: ${dl.message}`.trim(),
+            );
+          }
+        });
+      }
+    });
+  }
 
   return (
     <PageLayout
@@ -85,51 +271,162 @@ export function CertificatesPage() {
       description="Issue and manage certificates of baptism, marriage, and reception."
     >
       <Stack gap="md">
-        <Card padding="lg" maw={640}>
+        <Card padding="lg" maw={720}>
           <Stack gap="md">
             <Title order={3} style={{ fontWeight: 500 }}>
               Generate certificate
             </Title>
-            <TextField
-              label="Recipient name"
-              value={recipient}
-              onValueChange={setRecipient}
-              placeholder="Full name as it should appear"
+
+            <MantineSelect
+              label="Certificate type"
+              aria-label="Certificate type"
+              data={STUDIO_TYPE_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+              }))}
+              value={certType}
+              onChange={(value) => {
+                if (
+                  value === "baptism" ||
+                  value === "marriage" ||
+                  value === "reception"
+                ) {
+                  setCertType(value);
+                }
+              }}
+              allowDeselect={false}
             />
+
+            {templateSelectData.length > 0 ? (
+              <MantineSelect
+                label="Template"
+                aria-label="Certificate template"
+                data={templateSelectData}
+                value={templateId || null}
+                onChange={(value) => setTemplateId(value ?? "")}
+                searchable
+                placeholder={listsLoading ? "Loading…" : "Select template"}
+              />
+            ) : (
+              <TextInput
+                label="Template id"
+                aria-label="Template id"
+                value={templateId}
+                onChange={(e) => setTemplateId(e.currentTarget.value)}
+                placeholder="Numeric template_id"
+              />
+            )}
+            {templatesNote ? (
+              <Text size="xs" c="dimmed" role="status">
+                {templatesNote}
+              </Text>
+            ) : null}
+
+            <Group align="flex-end" wrap="wrap" gap="sm">
+              <TextInput
+                label="Search records"
+                aria-label="Search sacramental records"
+                value={recordSearch}
+                onChange={(e) => setRecordSearch(e.currentTarget.value)}
+                placeholder="Name…"
+                maw={220}
+                style={{ flex: 1 }}
+              />
+            </Group>
+
+            {recordSelectData.length > 0 ? (
+              <MantineSelect
+                label="Sacramental record"
+                aria-label="Sacramental record"
+                data={recordSelectData}
+                value={recordId || null}
+                onChange={(value) => setRecordId(value ?? "")}
+                searchable
+                placeholder={listsLoading ? "Loading…" : "Select record"}
+              />
+            ) : (
+              <TextInput
+                label="Record id"
+                aria-label="Record id"
+                value={recordId}
+                onChange={(e) => setRecordId(e.currentTarget.value)}
+                placeholder="Numeric record_id"
+              />
+            )}
+            {recordsNote ? (
+              <Text size="xs" c="dimmed" role="status">
+                {recordsNote}
+              </Text>
+            ) : null}
+
             {status ? (
               <Text size="sm" role="status">
                 {status}
               </Text>
             ) : null}
-            <Button
-              className="om-btn-primary"
-              size="sm"
-              accessibleLabel="Start certificate draft"
-              onAction={() => {
-                const result = startCertificateDraft({
-                  recipient,
-                  ...(user?.churchId != null
-                    ? { churchId: user.churchId }
-                    : {}),
-                });
-                if (!result.ok) {
-                  setStatus(result.message);
-                  return;
-                }
-                setStatus(result.message);
-              }}
-            >
-              Start draft
-            </Button>
+
+            {lastHistoryId != null ? (
+              <Group gap="sm">
+                <Button
+                  size="sm"
+                  accessibleLabel="Download generated certificate PDF"
+                  isDisabled={downloadingId === String(lastHistoryId)}
+                  onAction={() => {
+                    const id = String(lastHistoryId);
+                    setDownloadingId(id);
+                    void downloadCertificatePdf(
+                      lastHistoryId,
+                      `certificate-${id}.pdf`,
+                    ).then((result) => {
+                      setDownloadingId(null);
+                      if (!result.ok) setStatus(result.message);
+                    });
+                  }}
+                >
+                  {downloadingId === String(lastHistoryId)
+                    ? "Downloading…"
+                    : "Download PDF"}
+                </Button>
+                <Text size="xs" c="dimmed">
+                  History #{String(lastHistoryId)} — also listed below after
+                  refresh.
+                </Text>
+              </Group>
+            ) : null}
+
+            <Group gap="sm">
+              <Button
+                className="om-btn-primary"
+                size="sm"
+                accessibleLabel="Generate certificate PDF"
+                isDisabled={!canRender}
+                onAction={() => handleRender(false)}
+              >
+                {rendering ? "Generating…" : "Generate PDF"}
+              </Button>
+              {status?.toLowerCase().includes("missing") ? (
+                <Button
+                  size="sm"
+                  accessibleLabel="Generate certificate anyway"
+                  isDisabled={!canRender}
+                  onAction={() => handleRender(true)}
+                >
+                  Generate anyway
+                </Button>
+              ) : null}
+            </Group>
+
             {authMode === "live" ? (
               <Text size="xs" c="dimmed">
-                Live auth: history loads from GET /api/certificates/history.
-                PDF render (POST /api/certificates/render) stays in Certificate
-                Studio — requires template and record; designer canvas is deferred.
+                Live auth: POST /api/certificates/render with template_id +
+                record_id (and church context). Designer canvas stays
+                app-owned / deferred.
               </Text>
             ) : (
               <Text size="xs" c="dimmed">
-                Preview mode: drafts and history rows are mock until live auth.
+                Preview/mock mode: generate will not call the live render API
+                and will not report fake success. Switch AUTH_MODE=live with
+                church context for real PDFs.
               </Text>
             )}
           </Stack>
