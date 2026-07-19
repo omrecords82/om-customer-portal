@@ -18,7 +18,7 @@
     transition: transform 0.15s ease;
   }
 
-  .om-skip-link:focus {
+  .om-skip-link:focus-visible {
     transform: translateY(0);
     outline: var(--om-accessibility-focus-enhanced-width, 2px) solid
       var(--om-semantic-focus-ring, var(--om-brand-gold-5));
@@ -34,7 +34,7 @@
   }
 
   @media (prefers-contrast: more) {
-    .om-skip-link:focus {
+    .om-skip-link:focus-visible {
       outline-width: var(--om-accessibility-focus-enhanced-width, 3px);
     }
   }
@@ -58,7 +58,7 @@
     border: 1px solid CanvasText;
   }
 
-  .om-skip-link:focus {
+  .om-skip-link:focus-visible {
     outline: var(--om-accessibility-focus-enhanced-width, 3px) solid Highlight;
     outline-offset: 2px;
   }

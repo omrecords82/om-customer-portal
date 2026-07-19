@@ -8,7 +8,9 @@ import { Sidebar } from "./Sidebar";
 import { TopHeader } from "./TopHeader";
 import { PortalFooter } from "./PortalFooter";
 import { SkipToContentLink } from "../a11y/SkipToContentLink";
+import { useDocumentTitle } from "../a11y/useDocumentTitle";
 import { useFocusMainOnNavigate } from "../a11y/useFocusMainOnNavigate";
+import { resolvePageTitle } from "../config/navConfig";
 
 export function PortalShell() {
   const navigate = useNavigate();
@@ -19,6 +21,7 @@ export function PortalShell() {
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
 
   useFocusMainOnNavigate();
+  useDocumentTitle(resolvePageTitle(location.pathname));
 
   useEffect(() => {
     closeMobile();
@@ -56,7 +59,7 @@ export function PortalShell() {
         padding={0}
         style={{ height: "100vh" }}
       >
-        <AppShell.Header>
+        <AppShell.Header aria-label="Global header">
           <TopHeader
             onMobileToggle={toggleMobile}
             onDesktopToggle={toggleDesktop}

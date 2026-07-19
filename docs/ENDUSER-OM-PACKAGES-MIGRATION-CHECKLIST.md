@@ -203,6 +203,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] README: local, Packages auth, parallel URL model
 - [x] Expand unit/component tests for shell, theme sync, basePath, blueprint pages
 - [x] a11y baseline: skip link, focus main on navigate, drawer escape, burger `aria-controls`
+- [x] a11y shell sweep (2026-07-19): auth skip link + focus main, `:focus-visible` skip styling, `resolvePageTitle` + `document.title`, header `aria-label`, nested route titles
 
 **Dependencies:** foundation done.  
 **Blockers:** none.
@@ -542,6 +543,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] Liturgical token layer for calendar surfaces — **POST-MVP** with liturgical calendar (`data-om-liturgical-color` wiring imported; calendar UI not built)
 - [ ] `@om/icons` adoption after audit (do not mix Tabler/MUI/lucide casually) — **post-MVP allowed**
 - [x] forced-colors / accessibility CSS wired — `@om/tokens/css/accessibility` + portal `a11y.css` `forced-colors` shell focus (2026-07-19)
+- [x] Shell a11y sweep — skip link on auth + app shell, `:focus-visible` skip link, route `document.title`, header landmark label, nested `resolvePageTitle` (2026-07-19)
 - [ ] Church 46: **tenant exception remains app-owned** if/when that shell is ported — document forever-app-owned assets
 
 **Dependencies:** hub/chrome waves stable.  

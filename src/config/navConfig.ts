@@ -152,6 +152,41 @@ export const PAGE_TITLES: Readonly<Record<string, string>> = Object.fromEntries(
   PORTAL_NAV.map((item) => [item.href, item.title]),
 );
 
+/** Routes outside PORTAL_NAV that still need chrome/document titles. */
+export const EXTRA_PAGE_TITLES: Readonly<Record<string, string>> = {
+  "/onboarding/change-password": "Change password",
+  "/onboarding/record-tables": "Record tables",
+  "/onboarding/record-layouts": "Record layouts",
+  "/auth/login": "Sign in",
+  "/auth/forgot-password": "Forgot password",
+  "/auth/unauthorized": "Not authorized",
+  "/auth/verify-email": "Verify email",
+  "/auth/accept-invite": "Accept invite",
+};
+
+export const PORTAL_SITE_NAME = "Orthodox Metrics Portal";
+
 export function getNavItem(href: string): PortalNavItem | undefined {
   return PORTAL_NAV.find((item) => item.href === href);
+}
+
+/** Resolve a human page title from the current pathname (exact, extra, then longest nav prefix). */
+export function resolvePageTitle(pathname: string): string {
+  if (EXTRA_PAGE_TITLES[pathname]) return EXTRA_PAGE_TITLES[pathname];
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+
+  let best: PortalNavItem | undefined;
+  for (const item of PORTAL_NAV) {
+    if (item.href === "/") continue;
+    if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+      if (!best || item.href.length > best.href.length) best = item;
+    }
+  }
+  if (best) return best.title;
+  if (pathname === "/") return PAGE_TITLES["/"] ?? "Home";
+  return "Page not found";
+}
+
+export function formatDocumentTitle(pageTitle: string): string {
+  return pageTitle ? `${pageTitle} · ${PORTAL_SITE_NAME}` : PORTAL_SITE_NAME;
 }

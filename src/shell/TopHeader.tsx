@@ -14,7 +14,7 @@ import { useLocation, useNavigate } from "react-router";
 import { Menu as MenuIcon, Sun, Moon, ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { FALLBACK_USER } from "../data/session";
-import { PAGE_TITLES } from "../config/navConfig";
+import { resolvePageTitle } from "../config/navConfig";
 
 type TopHeaderProps = {
   onMobileToggle: () => void;
@@ -34,7 +34,7 @@ export function TopHeader({
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const pageTitle = PAGE_TITLES[location.pathname] ?? "";
+  const pageTitle = resolvePageTitle(location.pathname);
 
   const displayName = user?.displayName ?? FALLBACK_USER.name;
   const displayRole = user?.role ?? FALLBACK_USER.role;

@@ -86,7 +86,7 @@ Wired (2026-07-19): `@om/tokens/css/liturgical` and `@om/tokens/css/accessibilit
 | Layer | Active in package | Portal usage |
 | --- | --- | --- |
 | `om.liturgical` | `[data-om-liturgical-color="red"]` sets header accent | No calendar surfaces yet — wiring only; liturgical calendar is POST-MVP (Wave G) |
-| `om.accessibility` | `[data-om-focus-visibility="enhanced"]`, `@media (forced-colors)` focus vars | `a11y.css` composes skip-link + shell `forced-colors` focus using `--om-accessibility-focus-enhanced-width` / `--om-semantic-focus-ring` |
+| `om.accessibility` | `[data-om-focus-visibility="enhanced"]`, `@media (forced-colors)` focus vars | `a11y.css` composes skip-link (`:focus-visible`) + shell `forced-colors` focus using `--om-accessibility-focus-enhanced-width` / `--om-semantic-focus-ring`; `useDocumentTitle` + `resolvePageTitle` sync tab titles |
 
 Deferred until tokens publish Phase 1B output: `[data-om-contrast]`, `[data-om-motion]`, `[data-om-text-scale]`, non-red liturgical colors, `prefers-contrast: more` root vars.
 

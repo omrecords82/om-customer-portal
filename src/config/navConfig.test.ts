@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { getNavItem, PORTAL_NAV, PAGE_TITLES } from "./navConfig";
+import {
+  EXTRA_PAGE_TITLES,
+  formatDocumentTitle,
+  getNavItem,
+  PORTAL_NAV,
+  PAGE_TITLES,
+  resolvePageTitle,
+} from "./navConfig";
 
 describe("navConfig", () => {
   it("includes blueprint OCR and onboarding routes", () => {
@@ -21,5 +28,18 @@ describe("navConfig", () => {
     expect(getNavItem("/settings/parish")?.title).toBe("Parish settings");
     expect(getNavItem("/settings/users")?.title).toBe("Parish users");
     expect(getNavItem("/settings/preferences")?.showInSidebar).toBe(false);
+  });
+
+  it("resolves nested onboarding and auth titles", () => {
+    expect(resolvePageTitle("/onboarding/record-tables")).toBe("Record tables");
+    expect(resolvePageTitle("/onboarding/change-password")).toBe("Change password");
+    expect(resolvePageTitle("/settings/users/invite")).toBe("Parish users");
+    expect(resolvePageTitle("/auth/login")).toBe("Sign in");
+    expect(EXTRA_PAGE_TITLES["/auth/verify-email"]).toBe("Verify email");
+  });
+
+  it("formats document titles with the portal site name", () => {
+    expect(formatDocumentTitle("Records")).toBe("Records · Orthodox Metrics Portal");
+    expect(formatDocumentTitle("")).toBe("Orthodox Metrics Portal");
   });
 });
