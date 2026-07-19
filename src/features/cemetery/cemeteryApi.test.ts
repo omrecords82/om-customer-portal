@@ -11,10 +11,14 @@ vi.mock("../../auth/config", () => ({
 
 import { apiFetch } from "../../auth/apiFetch";
 import {
+  fetchCemeteryPlotDetail,
   fetchCemeteryPlots,
+  fetchCemeteryRenderGeometry,
   searchDeceasedPeople,
   unwrapCemeteryPeople,
+  unwrapCemeteryPlotDetail,
   unwrapCemeteryPlots,
+  unwrapCemeteryRenderGeometry,
 } from "./cemeteryApi";
 
 const mockedApiFetch = vi.mocked(apiFetch);
@@ -32,7 +36,7 @@ describe("cemeteryApi", () => {
     mockedApiFetch.mockReset();
   });
 
-  it("unwraps plot rows from live payload", () => {
+  it("unwraps plot rows from live payload including map coords", () => {
     const rows = unwrapCemeteryPlots({
       success: true,
       data: [
@@ -43,6 +47,11 @@ describe("cemeteryApi", () => {
           status: "Occupied",
           occupants: "Anna Kozlov",
           rowNo: "1",
+          mapX: 12.5,
+          mapY: 40,
+          mapW: 2.4,
+          mapH: 2.4,
+          occupantCount: 1,
         },
       ],
     });
@@ -54,6 +63,11 @@ describe("cemeteryApi", () => {
         status: "occupied",
         name: "Anna Kozlov",
         rowNo: "1",
+        mapX: 12.5,
+        mapY: 40,
+        mapW: 2.4,
+        mapH: 2.4,
+        occupantCount: 1,
       },
     ]);
   });
@@ -81,6 +95,56 @@ describe("cemeteryApi", () => {
     });
   });
 
+  it("unwraps render-geometry", () => {
+    const geom = unwrapCemeteryRenderGeometry({
+      success: true,
+      data: {
+        schemaVersion: 1,
+        churchId: 12,
+        viewBox: { width: 100, height: 170 },
+        plotDefaults: { width: 2.4, height: 2.4 },
+        roads: {
+          spine: [{ x: 40, y: 10 }, { x: 40, y: 80 }],
+          upper: [],
+        },
+        trafficCircle: { center: { x: 42, y: 62 }, radius: 11.5 },
+      },
+    });
+    expect(geom?.viewBox).toEqual({ width: 100, height: 170 });
+    expect(geom?.roads?.spine).toHaveLength(2);
+    expect(geom?.trafficCircle?.radius).toBe(11.5);
+    expect(geom?.churchId).toBe(12);
+  });
+
+  it("unwraps plot detail with occupants", () => {
+    const detail = unwrapCemeteryPlotDetail({
+      success: true,
+      data: {
+        id: 7,
+        sectionCode: "A",
+        sectionName: "Section A",
+        plotNumber: "12",
+        status: "occupied",
+        rowNo: "1",
+        familyCrest: "Kozlov",
+        occupants: [
+          {
+            intermentId: 99,
+            personId: 5,
+            firstName: "Anna",
+            lastName: "Kozlov",
+            deathDate: "2010-01-02",
+            burialDate: "2010-01-05",
+          },
+        ],
+      },
+    });
+    expect(detail?.id).toBe("7");
+    expect(detail?.occupants).toHaveLength(1);
+    expect(detail?.occupants[0]?.name).toBe("Anna Kozlov");
+    expect(detail?.occupants[0]?.personId).toBe("5");
+  });
+
   it("loads live plots for a church", async () => {
     mockedApiFetch.mockResolvedValue(
       jsonResponse({
@@ -92,6 +156,8 @@ describe("cemeteryApi", () => {
             plotNumber: "5",
             status: "available",
             occupants: null,
+            mapX: 1,
+            mapY: 2,
           },
         ],
       }),
@@ -101,8 +167,62 @@ describe("cemeteryApi", () => {
     if (!result.ok) return;
     expect(result.source).toBe("live");
     expect(result.plots[0]?.lot).toBe("5");
+    expect(result.plots[0]?.mapX).toBe(1);
     expect(mockedApiFetch).toHaveBeenCalledWith(
       "/api/churches/46/cemetery/plots",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("fetches render-geometry for a church", async () => {
+    mockedApiFetch.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: {
+          schemaVersion: 1,
+          churchId: 46,
+          viewBox: { width: 50, height: 60 },
+          roads: { spine: [{ x: 1, y: 2 }], upper: [] },
+        },
+      }),
+    );
+    const result = await fetchCemeteryRenderGeometry(46);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.source).toBe("live");
+    expect(result.geometry.viewBox?.width).toBe(50);
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/churches/46/cemetery/render-geometry",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("fetches plot detail for occupants", async () => {
+    mockedApiFetch.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: {
+          id: 9,
+          sectionCode: "B",
+          plotNumber: "3",
+          status: "occupied",
+          occupants: [
+            {
+              intermentId: 1,
+              personId: 2,
+              displayName: "Maria Kozlov",
+              deathDate: "2018-06-01",
+            },
+          ],
+        },
+      }),
+    );
+    const result = await fetchCemeteryPlotDetail(46, "9");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detail.occupants[0]?.name).toBe("Maria Kozlov");
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/churches/46/cemetery/plots/9",
       expect.objectContaining({ method: "GET" }),
     );
   });

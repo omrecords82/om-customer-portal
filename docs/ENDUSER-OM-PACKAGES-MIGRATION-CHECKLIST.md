@@ -441,7 +441,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 **Liturgical calendar:** **IN PRODUCT / POST-MVP**. Remains on the parish Customer Portal roadmap. **Does not block** initial portal cutover. Schedule after live auth, records, OCR, parish settings, required certificates, and cemetery for enabled churches.
 
-- [ ] Cemetery map page (read-only MVP) — map engine app-owned; panels/tooltips/controls `@om/ui` — shell only when `mapEnabled`; geometry fetch still deferred
+- [x] Cemetery map page (read-only MVP) — evidence: `CemeteryReadOnlyMap` + `fetchCemeteryRenderGeometry` (`GET …/cemetery/render-geometry`) + plot map coords from `/plots` when `cemetery.enabled` && `cemetery.mapEnabled`; SVG plot markers + road/circle polylines + geometry summary; plot select → detail (`GET …/plots/:plotId` occupants); mobile-stacked detail; disabled messaging when `mapEnabled` false. **Deferred:** full legacy CemeteryMap engine (pan/zoom, trees, landmarks, cameras, directions routing). No drawing/editing tools. No hard-coded church IDs.
 - [x] Cemetery records/plots lists + deceased search (read MVP) — evidence: `cemeteryApi.ts` + `CemeteryPage` wire `GET /api/churches/:churchId/cemetery/plots` + `GET …/people/search` when `cemetery.enabled` and `AUTH_MODE=live` + churchId; preview stub otherwise; plot detail panel select; no geometry editing; no hard-coded church IDs
 - [x] Maintenance / reports navigation gated by flags — surfaces render only when `maintenanceEnabled` / `reportsEnabled` (default off)
 - [x] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off) — `cemeteryFlags.ts` + env overlays
