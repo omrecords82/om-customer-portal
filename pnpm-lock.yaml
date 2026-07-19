@@ -15,8 +15,8 @@ importers:
         specifier: ^7.17.8
         version: 7.17.8(react@19.2.0)
       '@om/contracts':
-        specifier: npm:@omrecords82/contracts@0.1.0
-        version: '@omrecords82/contracts@0.1.0'
+        specifier: npm:@omrecords82/contracts@0.2.0
+        version: '@omrecords82/contracts@0.2.0'
       '@om/tokens':
         specifier: npm:@omrecords82/tokens@0.1.0
         version: '@omrecords82/tokens@0.1.0'
@@ -518,6 +518,9 @@ packages:
 
   '@omrecords82/contracts@0.1.0':
     resolution: {integrity: sha512-n1LUQtlcWKH4X2QH2Khl05W6XY+6+SlcnYCDrUomETlsaKct/PSTDic/mUyeNQmycqa2tLvYS7Ek8tsRZm+1XA==, tarball: https://npm.pkg.github.com/download/@omrecords82/contracts/0.1.0/15dd15e29b60c53cb6adf3514ad1b7da13611d6e}
+
+  '@omrecords82/contracts@0.2.0':
+    resolution: {integrity: sha512-DekDvHLDG3cJsVzXM7ZARjlfIIaME1qwGcXBHkO8Yb7A0AV9VWb0Ktd0opRlmayu8RuEJngWpazmK7Vtp7el9w==, tarball: https://npm.pkg.github.com/download/@omrecords82/contracts/0.2.0/ab94e0d7f2440fa664667ce0373e2a42cfb335ea}
 
   '@omrecords82/tokens@0.1.0':
     resolution: {integrity: sha512-fw266+ryn0CyIyr4sjOvVwZgDc0Tx4vQlutakhtvZpcezJ1Gmg2IoZFp5QEo/gTjtSHWnru+AMNkrZiAPZ4G2g==, tarball: https://npm.pkg.github.com/download/@omrecords82/tokens/0.1.0/c531554d8ced80f27e271861d22d9849064d6c39}
@@ -2145,6 +2148,10 @@ snapshots:
       react: 19.2.0
 
   '@omrecords82/contracts@0.1.0': {}
+
+  '@omrecords82/contracts@0.2.0':
+    dependencies:
+      zod: 4.4.3
 
   '@omrecords82/tokens@0.1.0':
     dependencies:
