@@ -19,6 +19,7 @@ export default defineConfig(
       "**/node_modules/**",
       "**/*.tsbuildinfo",
       "docs/**",
+      "scripts/**",
     ],
   },
   js.configs.recommended,

@@ -1,26 +1,8 @@
 import { Box, Group, ScrollArea, Text } from "@mantine/core";
 import { Link } from "react-aria-components";
 import { useLocation } from "react-router";
-import {
-  Home,
-  FileText,
-  Upload,
-  BarChart2,
-  MapPin,
-  Award,
-  HelpCircle,
-} from "lucide-react";
 import { parish } from "../data/session";
-
-const NAV_ITEMS = [
-  { href: "/",             icon: Home,       label: "Home"           },
-  { href: "/records",      icon: FileText,   label: "Records"        },
-  { href: "/ocr",          icon: Upload,     label: "OCR & Uploads"  },
-  { href: "/metrics",      icon: BarChart2,  label: "Church Metrics" },
-  { href: "/cemetery",     icon: MapPin,     label: "Cemetery"       },
-  { href: "/certificates", icon: Award,      label: "Certificates"   },
-  { href: "/help",         icon: HelpCircle, label: "Help"           },
-];
+import { PORTAL_NAV } from "../config/navConfig";
 
 function OrthodoxCross() {
   return (
@@ -34,9 +16,9 @@ function OrthodoxCross() {
       strokeLinecap="round"
       aria-hidden="true"
     >
-      <line x1="10" y1="1"    x2="10" y2="25" />
-      <line x1="3"  y1="7"    x2="17" y2="7"  />
-      <line x1="5.5" y1="14"  x2="14.5" y2="14" />
+      <line x1="10" y1="1" x2="10" y2="25" />
+      <line x1="3" y1="7" x2="17" y2="7" />
+      <line x1="5.5" y1="14" x2="14.5" y2="14" />
     </svg>
   );
 }
@@ -47,10 +29,11 @@ type SidebarProps = {
 
 export function Sidebar({ onNavClick }: SidebarProps) {
   const location = useLocation();
+  const items = PORTAL_NAV.filter((item) => item.showInSidebar !== false);
 
   function isActive(href: string) {
     if (href === "/") return location.pathname === "/";
-    return location.pathname.startsWith(href);
+    return location.pathname === href || location.pathname.startsWith(`${href}/`);
   }
 
   return (
@@ -63,7 +46,6 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         overflow: "hidden",
       }}
     >
-      {/* Parish identity */}
       <Box
         px="md"
         pt="lg"
@@ -91,10 +73,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
               truncate
               fw={500}
               c="white"
-              style={{
-                fontSize: 14.5,
-                lineHeight: 1.3,
-              }}
+              style={{ fontSize: 14.5, lineHeight: 1.3 }}
             >
               {parish.shortName}
             </Text>
@@ -120,10 +99,9 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         </Text>
       </Box>
 
-      {/* Navigation */}
       <ScrollArea style={{ flex: 1 }} py="xs">
         <nav aria-label="Primary navigation">
-          {NAV_ITEMS.map(({ href, icon: Icon, label }) => (
+          {items.map(({ href, icon: Icon, label }) => (
             <Link
               key={href}
               href={href}
@@ -138,7 +116,6 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         </nav>
       </ScrollArea>
 
-      {/* Orthodox Metrics attribution */}
       <Box
         px="md"
         py="sm"

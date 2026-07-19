@@ -13,24 +13,21 @@ import {
 import { useLocation } from "react-router";
 import { Menu as MenuIcon, Sun, Moon, ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { currentUser } from "../data/session";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/":             "Home",
-  "/records":      "Records",
-  "/ocr":          "OCR & Uploads",
-  "/metrics":      "Church Metrics",
-  "/cemetery":     "Cemetery",
-  "/certificates": "Certificates",
-  "/help":         "Help",
-  "/account":      "My Account",
-};
+import { PAGE_TITLES } from "../config/navConfig";
 
 type TopHeaderProps = {
   onMobileToggle: () => void;
   onDesktopToggle: () => void;
+  mobileNavExpanded: boolean;
+  navbarId: string;
 };
 
-export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
+export function TopHeader({
+  onMobileToggle,
+  onDesktopToggle,
+  mobileNavExpanded,
+  navbarId,
+}: TopHeaderProps) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const location = useLocation();
   const isMobile = useMediaQuery("(max-width: 767px)");
@@ -50,28 +47,32 @@ export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
       px="md"
       justify="space-between"
       wrap="nowrap"
-      style={{ borderBottom: "1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border))" }}
+      style={{
+        borderBottom:
+          "1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border))",
+      }}
     >
-      {/* Left: burger (hidden on lg+) + page context */}
       <Group gap="sm" wrap="nowrap">
         <Box hiddenFrom="lg">
-          <IconButton
+          <Button
             className="om-header-icon-btn"
-            variant="quiet"
-            size="sm"
-            accessibleLabel="Toggle navigation"
-            icon={<MenuIcon size={18} aria-hidden="true" />}
-            onAction={handleBurgerPress}
-          />
+            aria-label="Toggle navigation"
+            {...(isMobile === true
+              ? { "aria-expanded": mobileNavExpanded }
+              : {})}
+            aria-controls={navbarId}
+            onPress={handleBurgerPress}
+          >
+            <MenuIcon size={18} aria-hidden="true" />
+          </Button>
         </Box>
-        {pageTitle && (
+        {pageTitle ? (
           <Text size="sm" fw={500} visibleFrom="sm" style={{ lineHeight: 1 }}>
             {pageTitle}
           </Text>
-        )}
+        ) : null}
       </Group>
 
-      {/* Right: color scheme toggle + user account */}
       <Group gap={4} wrap="nowrap">
         <IconButton
           className="om-header-icon-btn"

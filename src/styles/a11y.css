@@ -1,0 +1,40 @@
+/* Skip link — visible on keyboard focus */
+.om-skip-link {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  z-index: 4000;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--mantine-color-navy-7);
+  color: var(--mantine-color-white) !important;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+
+.om-skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--mantine-color-gold-5);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .om-skip-link,
+  .om-spin {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@keyframes om-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.om-spin {
+  animation: om-spin 0.9s linear infinite;
+}

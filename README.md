@@ -1,11 +1,52 @@
+# Orthodox Metrics Customer Portal
 
-  # Design Orthodox Metrics Portal Shells
+Greenfield parish end-user UI. Source of truth for the new portal experience; legacy `/portal` SPA remains in parallel during cutover.
 
-  This is a code bundle for Design Orthodox Metrics Portal Shells. The original project is available at https://www.figma.com/design/LCGOtsFlr9IMNtl9UuVBgg/Design-Orthodox-Metrics-Portal-Shells.
+## Requirements
 
-  ## Running the code
+- Node `24.18.0` (see `.nvmrc`) — engines: `>=24.18.0 <25`
+- pnpm `11.10.0` via Corepack
+- GitHub Packages token with `read:packages` for `@omrecords82/*`
 
-  Run `npm i` to install the dependencies.
+```bash
+export NODE_AUTH_TOKEN=<pat-with-read:packages>
+# pnpm expands auth from ~/.npmrc (not project .npmrc):
+echo '@omrecords82:registry=https://npm.pkg.github.com' >> ~/.npmrc
+echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
-  Run `npm run dev` to start the development server.
-  
+corepack enable
+corepack prepare pnpm@11.10.0 --activate
+pnpm install
+```
+
+## Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `pnpm dev` | Vite dev server |
+| `pnpm lint` | ESLint |
+| `pnpm typecheck` | `tsc -b` |
+| `pnpm test` | Vitest |
+| `pnpm validate:deps` | Fail on prohibited UI libs |
+| `pnpm build` | Production build |
+| `pnpm deploy:static` | Build `/portal2` + rsync to deploy dir |
+
+## Base path & deploy
+
+Preview URL: `https://orthodoxmetrics.com/portal2/`  
+Static output directory: `/var/www/orthodoxmetrics/portal`  
+Default env: `VITE_PORTAL_BASE_PATH=/portal2` (see `.env.example`)
+
+```bash
+pnpm deploy:static
+# or:
+VITE_PORTAL_BASE_PATH=/portal2 ./scripts/deploy-static.sh
+```
+
+## Stack ownership
+
+- **Mantine** — layout, surfaces, spacing, typography, responsive shell
+- **`@om/ui` / `@om/tokens` / `@om/contracts`** — shared controls & tokens (GitHub Packages)
+- **React Aria Components** — only where `@om/ui` lacks a required capability (ESLint allowlist)
+
+See `docs/om-package-integration.md` and `docs/ENDUSER-OM-PACKAGES-MIGRATION-CHECKLIST.md`.

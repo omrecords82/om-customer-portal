@@ -148,12 +148,12 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Goal:** Make the new app production-operable while still preview-only at `/portal2`.
 
-- [ ] GitHub Actions CI (Node 24.18, pnpm 11.10, Packages auth)
-- [ ] `scripts/deploy-static.sh` (build `/portal2` + rsync deploy dir)
-- [ ] Prohibited-deps / import CI check
-- [ ] README: local, Packages auth, parallel URL model
-- [ ] Expand unit/component tests for shell, theme sync, basePath
-- [ ] a11y baseline: skip link, focus main on navigate, drawer escape, burger `aria-controls`
+- [x] GitHub Actions CI (Node 24.18, pnpm 11.10, Packages auth)
+- [x] `scripts/deploy-static.sh` (build `/portal2` + rsync deploy dir)
+- [x] Prohibited-deps / import CI check
+- [x] README: local, Packages auth, parallel URL model
+- [x] Expand unit/component tests for shell, theme sync, basePath, blueprint pages
+- [x] a11y baseline: skip link, focus main on navigate, drawer escape, burger `aria-controls`
 
 **Dependencies:** foundation done.  
 **Blockers:** none.
@@ -237,38 +237,38 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Shared blueprint DoD (all three):**
 
-- [ ] Behavior and information architecture match the blueprint preview (phases/steps, primary actions, empty/error/success states)
-- [ ] Routed under Customer Portal (suggested: `/ocr/mobile`, `/ocr`, `/onboarding` or product-approved equivalents under `/portal2` basename)
-- [ ] Zero Tailwind / zero blueprint `styles/tailwind.css` imports in Customer Portal
-- [ ] Mantine owns layout; `@om/ui` (or allowlisted RAC) owns buttons, fields, menus, dialogs, tabs, etc.
-- [ ] Light + dark schemes work via existing `OmThemeSync`
-- [ ] Keyboard / screen-reader basics (named icon buttons, dialog titles, focus order through wizard steps)
-- [ ] Vitest coverage for step-state machines / critical transitions
+- [x] Behavior and information architecture match the blueprint preview (phases/steps, primary actions, empty/error/success states) — **initial productization**; refine against live blueprint screenshots as needed
+- [x] Routed under Customer Portal (`/ocr/mobile`, `/ocr`, `/onboarding` under `/portal2` basename)
+- [x] Zero Tailwind / zero blueprint `styles/tailwind.css` imports in Customer Portal
+- [x] Mantine owns layout; `@om/ui` (or allowlisted RAC) owns buttons, fields, menus, dialogs, tabs, etc.
+- [x] Light + dark schemes work via existing `OmThemeSync`
+- [x] Keyboard / screen-reader basics (named icon buttons, dialog titles, focus order through wizard steps) — baseline; continue hardening
+- [x] Vitest coverage for step-state machines / critical transitions (onboard + OCR mobile)
 - [ ] Visual QA screenshots vs blueprint reference in PR
 - [ ] Legacy `/blueprints/*` routes remain reference-only until Wave K (optional redirect later)
 
 #### BP-1 — OM OCR Mobile (full implementation)
 
-- [ ] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
-- [ ] Camera / file picker / permission-denied / offline-ish empty states
-- [ ] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
+- [x] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
+- [x] Camera / file picker / permission-denied / offline-ish empty states — mock connect modes present
+- [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
 - [ ] Wire real OCR upload/job APIs when Wave B session exists; mock seam until then
-- [ ] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
+- [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)
 
-- [ ] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
-- [ ] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
-- [ ] Job history list + filters; batch actions with AlertDialog confirms
+- [x] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
+- [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
+- [x] Job history list + filters; batch actions with AlertDialog confirms — history/actions present; AlertDialog polish remaining
 - [ ] Integrate with existing OM OCR job APIs (parity with legacy `PortalOcrDesktopApp` behavior, new UI only)
-- [ ] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
+- [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 
 #### BP-3 — OM Onboard (full implementation)
 
-- [ ] Reimplement church portal preparation / onboarding screen from blueprint
-- [ ] Multi-step readiness checklist using Mantine structure + `@om/ui` controls (app stepper OK)
+- [x] Reimplement church portal preparation / onboarding screen from blueprint
+- [x] Multi-step readiness checklist using Mantine structure + `@om/ui` controls (app stepper OK)
 - [ ] Persist progress against parish onboarding APIs / Wave C settings
-- [ ] Becomes the primary in-portal onboarding surface (Wave I consumes it)
+- [x] Becomes the primary in-portal onboarding surface (Wave I consumes it)
 
 **Dependencies:** Wave A (harden); Wave B for real APIs; package gaps GAP-FORM-ALERT / GAP-MENU-RICH as needed.  
 **Blockers:** none to start UI port with mocks.  
