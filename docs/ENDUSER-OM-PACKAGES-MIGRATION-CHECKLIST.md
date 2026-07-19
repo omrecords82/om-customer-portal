@@ -254,6 +254,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Parish info / church details — evidence: `ParishSettingsPage` + `settingsApi.ts` wire GET/PUT `/api/my/church-settings` when live + church context; role-gated edit (`church_admin`, `priest`, etc.)
 - [x] Branding / OCR prefs (controls only; heavy editors later) — evidence: `PreferencesPage` + `settingsApi.ts` wire GET/PUT `/api/my/ocr-preferences` when `AUTH_MODE=live` + OCR admin role (`super_admin`, `admin`, `church_admin`); autoseed toggle maps to `useRecordSnippets`; review auto-open stays disabled (no API field); preview keeps honest local messaging
 - [x] Parish users list (semantic `@om/ui/table` + mock rows) — evidence: `ParishUsersPage` + `settingsApi.ts` wire GET `/api/admin/church-users/:churchId` + POST unlock when `AUTH_MODE=live` + parish staff role; preview keeps mock rows; invite + revoke CTAs gated (platform-admin APIs only)
+- [x] Shell parish chrome (Sidebar, PortalFooter, AuthLayout) — evidence: `ParishProfileProvider` + `fetchParishProfile` / GET `/api/my/church-settings` when `AUTH_MODE=live` + auth; preview/fetch-failure keep honest defaults + notes
 - [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard / Wave I
 
 **Dependencies:** Wave B.  

@@ -1,10 +1,7 @@
-/** Parish context for portal chrome (Wave C will load from API). */
-export const parish = {
-  name: "Saints Peter and Paul Orthodox Church",
-  shortName: "Sts. Peter & Paul",
-  location: "Manville, New Jersey",
-  diocese: "Diocese of New York & New Jersey",
-} as const;
+import { DEFAULT_PARISH } from "../features/settings/settingsData";
+
+/** Preview fallback parish identity; live shell chrome loads via ParishProfileProvider. */
+export const parish = DEFAULT_PARISH;
 
 /** Fallback chrome identity when no session user is loaded yet. */
 export const FALLBACK_USER = {

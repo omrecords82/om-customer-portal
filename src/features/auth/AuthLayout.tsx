@@ -1,7 +1,7 @@
 import { Box, Stack, Text, Title } from "@mantine/core";
 import type { ReactNode } from "react";
 
-import { parish } from "../../data/session";
+import { useParishProfile } from "../../shell/ParishProfileProvider";
 
 export function AuthLayout({
   title,
@@ -12,6 +12,8 @@ export function AuthLayout({
   readonly description: string;
   readonly children: ReactNode;
 }) {
+  const { profile: parish, note } = useParishProfile();
+
   return (
     <Box
       component="main"
@@ -38,6 +40,11 @@ export function AuthLayout({
             >
               {parish.shortName}
             </Text>
+            {note ? (
+              <Text size="xs" c="dimmed">
+                {note}
+              </Text>
+            ) : null}
             <Title order={1} style={{ fontSize: 28, fontWeight: 500 }}>
               {title}
             </Title>

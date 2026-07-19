@@ -35,6 +35,7 @@ import { VerifyEmailPage } from "../features/auth/VerifyEmailPage";
 import { AcceptInvitePage } from "../features/auth/AcceptInvitePage";
 import { AuthProvider } from "../auth/AuthProvider";
 import { RequireAuth } from "../auth/RequireAuth";
+import { ParishProfileProvider } from "../shell/ParishProfileProvider";
 
 const router = createBrowserRouter(
   [
@@ -105,7 +106,9 @@ export default function App() {
     <MantineProvider theme={portalTheme} defaultColorScheme="light">
       <OmThemeSync />
       <AuthProvider>
-        <RouterProvider router={router} />
+        <ParishProfileProvider>
+          <RouterProvider router={router} />
+        </ParishProfileProvider>
       </AuthProvider>
     </MantineProvider>
   );

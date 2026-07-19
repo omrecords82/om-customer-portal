@@ -1,8 +1,8 @@
 import { Box, Group, ScrollArea, Text } from "@mantine/core";
 import { Link } from "react-aria-components";
 import { useLocation } from "react-router";
-import { parish } from "../data/session";
 import { PORTAL_NAV } from "../config/navConfig";
+import { useParishProfile } from "./ParishProfileProvider";
 
 function OrthodoxCross() {
   return (
@@ -29,6 +29,7 @@ type SidebarProps = {
 
 export function Sidebar({ onNavClick }: SidebarProps) {
   const location = useLocation();
+  const { profile: parish, note } = useParishProfile();
   const items = PORTAL_NAV.filter((item) => item.showInSidebar !== false);
 
   function isActive(href: string) {
@@ -97,6 +98,19 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         >
           {parish.diocese}
         </Text>
+        {note ? (
+          <Text
+            mt={6}
+            size="xs"
+            style={{
+              color: "var(--om-sidebar-text-faint)",
+              lineHeight: 1.35,
+              fontSize: 10,
+            }}
+          >
+            {note}
+          </Text>
+        ) : null}
       </Box>
 
       <ScrollArea style={{ flex: 1 }} py="xs">

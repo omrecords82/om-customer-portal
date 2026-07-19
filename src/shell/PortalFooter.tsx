@@ -1,7 +1,10 @@
 import { Box, Group, Text } from "@mantine/core";
-import { parish } from "../data/session";
+
+import { useParishProfile } from "./ParishProfileProvider";
 
 export function PortalFooter() {
+  const { profile: parish, note } = useParishProfile();
+
   return (
     <Box
       component="footer"
@@ -24,6 +27,11 @@ export function PortalFooter() {
           <Text size="xs" c="dimmed" mt={2}>
             {parish.location} · {parish.diocese}
           </Text>
+          {note ? (
+            <Text size="xs" c="dimmed" mt={4}>
+              {note}
+            </Text>
+          ) : null}
         </Box>
         <Text size="xs" c="dimmed">
           Powered by{" "}
