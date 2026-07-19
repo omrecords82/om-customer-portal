@@ -48,7 +48,7 @@
 
 **Current execution priority (operator):**
 
-1. Live authentication pilot — sole allowlisted tenant: **`om_church_46`** (partial enablement evidence: login + church context + live records list confirmed 2026-07-19)  
+1. Live authentication pilot — sole allowlisted tenant: **`om_church_46`** — **enablement evidence closed 2026-07-19** (rollback rehearse waived by operator; `/portal2` stays live auth)  
 2. Live OCR API integration  
 3. Records deep-link compatibility  
 4. Canonical records schema and Wave H editors (after gates)  
@@ -232,7 +232,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Post-login routing policy recorded: pilots stay on `/portal2`; **do not** globally flip legacy `/portal` (Wave K)
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
 - [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
-- [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) — **sole allowlisted tenant:** `om_church_46` (slug + numeric `church_id` **46** confirmed 2026-07-19). **Nearly complete:** all interactive verification rows confirmed 2026-07-19 on live `/portal2` (including parish settings post-fix re-login + nested `next=` round-trip); **rollback rehearse** deliberately skipped — `docs/AUTH-PILOT-CHECKLIST.md`, `pnpm validate:auth-pilot`
+- [x] Pilot tenant enablement evidence (allowlist + verification checklist above) — **closed 2026-07-19** for sole allowlisted tenant **`om_church_46`** (slug + numeric `church_id` **46**): all interactive verification rows confirmed on live `/portal2` (parish settings post-fix re-login, nested `next=` round-trip, live records list). **Rollback rehearse waived** by operator (not rehearsed; no mock redeploy) — `docs/AUTH-PILOT-CHECKLIST.md`, `pnpm validate:auth-pilot`
 - [x] Account password change dialog + profile surface exist; **sessions list + revoke** wired on `AccountPage` — evidence: GET/DELETE `/api/user/sessions`, POST `/api/user/sessions/revoke-others` via `settingsApi.ts` when `AUTH_MODE=live`; preview keeps honest mock sessions
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events
 - [x] SPA shell links via **approved temporary** basename-aware RAC adapters (see §2.2 waivers) until GAP-LINK-* closes — document in `docs/om-package-integration.md`; do not invent fake `@om/ui` wrappers
@@ -468,11 +468,11 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 **Work ref:** `PORTAL-WAVE-H-EDITORS`
 
-**Operator authorization (2026-07-19): Wave H is NOT authorized to start yet.**
+**Operator authorization (2026-07-19): Wave H is NOT authorized to start yet** — sole remaining entry gate: canonical `@om/contracts` sacramental schemas (see § below + `docs/WAVE-H-RECORDS-GATES.md` §4).
 
 #### Wave H entry gates (all must pass before any editor work)
 
-- [ ] Live authentication and church context work for pilot users — capability shipped (Wave B); **nearly complete enablement evidence** for sole pilot `om_church_46`: all interactive rows confirmed 2026-07-19 (parish settings live post `f1aeb2d37`, nested `next=` round-trip); **rollback rehearse** deliberately skipped (`docs/AUTH-PILOT-CHECKLIST.md`)
+- [x] Live authentication and church context work for pilot users — **closed 2026-07-19** for sole pilot **`om_church_46`** (church **46**): all interactive verification rows confirmed on live `/portal2` (parish settings post `f1aeb2d37`, nested `next=` round-trip, live records list). **Rollback rehearse waived** by operator (not rehearsed; production stays `AUTH_MODE=live` + `REQUIRE_AUTH=true` on `/portal2`; legacy `/portal` untouched) — `docs/AUTH-PILOT-CHECKLIST.md`
 - [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`. **Editors still blocked.**
 - [x] Wave E records deep-link compatibility is implemented and tested
 - [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts` — **packages repo gap**; see `docs/WAVE-H-RECORDS-GATES.md` §4

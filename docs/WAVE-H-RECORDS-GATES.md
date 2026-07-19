@@ -136,7 +136,7 @@ Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
 
 | Wave H entry gate | Status after this doc |
 |---|---|
-| Live authentication and church context for pilot users | **Open** — capability shipped; per-tenant enablement evidence still required (`AUTH-PILOT-CHECKLIST.md`) |
+| Live authentication and church context for pilot users | **Closed** — enablement evidence complete for `om_church_46` (2026-07-19); rollback rehearse **waived** (`AUTH-PILOT-CHECKLIST.md`) |
 | Real records-list APIs in portal | **Closed** (prior commit) |
 | Wave E deep-link compatibility | **Closed** (prior) |
 | Canonical schemas in `@om/contracts` | **Open** — packages repo |
@@ -146,4 +146,4 @@ Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
 | Dual-run or rollback defined | **Closed** — §6 + `recordsEditorFlags.ts` |
 | Audit-logging requirements defined | **Closed** — §3 |
 
-**Editors remain blocked** until operator re-authorizes Wave H after any remaining open gates (live pilot evidence + contracts).
+**Editors remain blocked** until operator re-authorizes Wave H after the remaining open gate: canonical `@om/contracts` sacramental schemas (§4).

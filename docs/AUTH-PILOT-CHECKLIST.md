@@ -26,7 +26,7 @@
 
 5. **Evidence** — fill the [Per-tenant evidence log](#per-tenant-evidence-log) and mark Wave B item in `docs/ENDUSER-OM-PACKAGES-MIGRATION-CHECKLIST.md` when **all** tenants in scope are done.
 
-6. **Rollback rehearse** — before closing evidence, revert env to mock / `REQUIRE_AUTH=false`, redeploy, confirm `/portal` legacy SPA still serves parish traffic.
+6. **Rollback rehearse** — optional before closing evidence: revert env to mock / `REQUIRE_AUTH=false`, redeploy, confirm `/portal` legacy SPA still serves parish traffic. **Operator waiver (2026-07-19):** no rollback rehearsal for `om_church_46`; production `/portal2` stays `VITE_PORTAL_AUTH_MODE=live` + `VITE_PORTAL_REQUIRE_AUTH=true`; legacy `/portal` left untouched.
 
 ## Pilot allowlist (operator-maintained)
 
@@ -50,7 +50,9 @@ Copy one block per enabled tenant. Attach screenshots or log excerpts in your op
 >
 > **Agent verification (2026-07-19, live `/portal2`):** logout, expired-session redirect, unauthorized page, nested `next=` unauthenticated redirect, CSRF profile save, and priest role nav confirmed in browser. Parish settings returned **400 CHURCH_ID_MISSING** (session user lacked `church_id` while JWT/DB had church 46) — backend fix `f1aeb2d37` deployed via `om-deploy.sh be-sync`.
 >
-> **Operator confirmed (2026-07-19, post-fix re-login):** parish settings API = **live** (not 400); nested `next=` round-trip OK — login with `next=/records?type=baptism` lands on baptism filter with live data. Rollback deliberately not run.
+> **Operator confirmed (2026-07-19, post-fix re-login):** parish settings API = **live** (not 400); nested `next=` round-trip OK — login with `next=/records?type=baptism` lands on baptism filter with live data.
+>
+> **Operator waiver (2026-07-19):** rollback rehearsal **declined** — no mock redeploy. Production `/portal2` remains `AUTH_MODE=live` + `REQUIRE_AUTH=true`; legacy `/portal` left untouched.
 
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |
@@ -66,9 +68,9 @@ Copy one block per enabled tenant. Attach screenshots or log excerpts in your op
 | Nested route `next=` round-trip | [x] | operator | 2026-07-19 | Login with `next=/records?type=baptism` → baptism filter with live data |
 | **Records list (live)** | [x] | operator | 2026-07-19 | `/portal2/records` — **1296** combined (626+223+447) for church 46 |
 | Production error logging | [x] | agent | 2026-07-19 | Observed **400** parish-settings error surfaced in Account diagnostics + sidebar note (pre-fix) |
-| Rollback rehearsed | [ ] | | | Deliberately skipped — operator to confirm before close |
+| Rollback rehearsed | N/A | operator | 2026-07-19 | **Waived by operator** — no AUTH-PILOT rollback rehearsal; production stays live auth on `/portal2`; legacy `/portal` untouched |
 
-**Wave B checklist item:** `[ ] Pilot tenant enablement evidence` — **nearly complete** (all interactive rows confirmed 2026-07-19 for `om_church_46`); **rollback rehearse** deliberately skipped — close only when every row in this table is complete for every allowlisted tenant.
+**Wave B checklist item:** `[x] Pilot tenant enablement evidence` — **closed 2026-07-19** for sole allowlisted tenant `om_church_46` (church **46**); rollback rehearse **waived** (not rehearsed).
 
 ## Build / runtime flags
 
@@ -93,7 +95,7 @@ Apply only for internal users and **explicitly allowlisted** pilot tenants. Do n
 - [x] Direct nested-route access (e.g. `/portal2/records?type=baptism`) — operator 2026-07-19: login with `next=/records?type=baptism` lands on baptism filter with live data
 - [x] Parish settings (`GET /api/my/church-settings`) — operator 2026-07-19: post-fix re-login confirms API **live** (fix `f1aeb2d37`)
 - [x] Production error logging observed — agent 2026-07-19 (400 parish-settings pre-fix in diagnostics)
-- [ ] Rollback plan rehearsed (revert env to `mock` / `REQUIRE_AUTH=false`, redeploy) — deliberate skip pending operator
+- [x] Rollback plan rehearsed — **N/A / waived by operator 2026-07-19** (declined; no mock redeploy; `/portal2` stays live auth; legacy `/portal` untouched)
 
 ## In-app diagnostics (live mode)
 
@@ -125,6 +127,8 @@ pnpm validate:auth-pilot
 Do **not** treat automated sections as pilot tenant enablement complete.
 
 ## Rollback
+
+**Pilot waiver (2026-07-19):** operator declined rollback rehearsal for `om_church_46`. Production `/portal2` remains `VITE_PORTAL_AUTH_MODE=live` + `VITE_PORTAL_REQUIRE_AUTH=true`. Legacy `/portal` was not redeployed or modified. The steps below remain the documented rollback path if needed later — they were **not** executed for this pilot close-out.
 
 1. Set `VITE_PORTAL_AUTH_MODE=mock` and/or `VITE_PORTAL_REQUIRE_AUTH=false`
 2. `pnpm deploy:static` (or CI deploy)
