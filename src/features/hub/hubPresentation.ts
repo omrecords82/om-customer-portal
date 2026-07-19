@@ -145,7 +145,8 @@ export function buildHubSecondaryModules(opts: {
       label: "Church Metrics",
       description: "Sacramental trends and parish growth charts.",
       availability: "preview",
-      availabilityNote: "KPI tiles use dashboard API in live sessions.",
+      availabilityNote:
+        "KPI tiles reuse hub dashboard API; charts rendering deferred.",
     },
     {
       href: "/cemetery",

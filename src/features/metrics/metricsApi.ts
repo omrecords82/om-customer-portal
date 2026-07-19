@@ -1,5 +1,6 @@
 import { apiFetch } from "../../auth/apiFetch";
 import { authMode } from "../../auth/config";
+import { fetchChurchDashboardJson } from "../hub/hubApi";
 
 /**
  * Wave G church metrics client.
@@ -221,34 +222,26 @@ async function fetchDashboardMetrics(
   | { readonly ok: true; readonly metrics: MetricsSlice }
   | { readonly ok: false; readonly message: string; readonly status: number }
 > {
-  try {
-    const res = await apiFetch(`/api/churches/${String(churchId)}/dashboard`, {
-      method: "GET",
-    });
-    if (!res.ok) {
-      return {
-        ok: false,
-        message: `Dashboard metrics unavailable (${String(res.status)}).`,
-        status: res.status,
-      };
-    }
-    const payload: unknown = await res.json().catch(() => null);
-    const metrics = unwrapMetricsDashboard(payload);
-    if (!metrics) {
-      return {
-        ok: false,
-        message: "Dashboard metrics response was empty or malformed.",
-        status: 502,
-      };
-    }
-    return { ok: true, metrics };
-  } catch {
+  const jsonRes = await fetchChurchDashboardJson(churchId);
+  if (!jsonRes.ok) {
     return {
       ok: false,
-      message: "Network error loading dashboard metrics.",
-      status: 0,
+      message: jsonRes.message.replace(
+        "Dashboard unavailable",
+        "Dashboard metrics unavailable",
+      ),
+      status: jsonRes.status,
     };
   }
+  const metrics = unwrapMetricsDashboard(jsonRes.payload);
+  if (!metrics) {
+    return {
+      ok: false,
+      message: "Dashboard metrics response was empty or malformed.",
+      status: 502,
+    };
+  }
+  return { ok: true, metrics };
 }
 
 async function fetchChartsSummaryNotes(

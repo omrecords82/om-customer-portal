@@ -1,63 +1,232 @@
-import { Card, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { useEffect, useState } from "react";
+import {
+  Badge,
+  Box,
+  Card,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
+import { Button } from "@om/ui/button";
+import {
+  ArrowRight,
+  BarChart3,
+  FileText,
+  Home,
+  PieChart,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { useNavigate } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import {
-  fetchChurchMetrics,
-  type MetricsSlice,
-} from "./metricsApi";
+  buildChartsDeferredNote,
+  buildDistributionEmptyCopy,
+  buildMetricsEmptyKpiCopy,
+  buildMetricsStatusNote,
+  formatMetricsCount,
+  METRICS_SOURCE_MODULES,
+  metricsEmptyNote,
+  metricsSlice,
+  metricsSourceBadgeLabel,
+  type MetricsSourceModule,
+} from "./metricsPresentation";
+import { useMetricsDashboard } from "./useMetricsDashboard";
+
+const KPI_ICONS = [TrendingUp, Users, FileText, PieChart] as const;
+
+function SummaryCard({
+  label,
+  value,
+  note,
+  icon: Icon,
+  loading,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  icon: typeof TrendingUp;
+  loading: boolean;
+}) {
+  return (
+    <Card aria-busy={loading}>
+      <Group justify="space-between" align="flex-start" mb="sm">
+        <Text
+          size="xs"
+          tt="uppercase"
+          fw={500}
+          c="dimmed"
+          style={{ letterSpacing: "0.08em" }}
+        >
+          {label}
+        </Text>
+        <Box
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 6,
+            background: "var(--mantine-color-navy-0)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--mantine-color-navy-6)",
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={15} aria-hidden="true" />
+        </Box>
+      </Group>
+      <Title
+        order={2}
+        style={{
+          fontSize: 32,
+          fontWeight: 400,
+          lineHeight: 1,
+          color: loading
+            ? "var(--mantine-color-dimmed)"
+            : "var(--mantine-color-text)",
+        }}
+        mb={6}
+      >
+        {value}
+      </Title>
+      <Text size="xs" c="dimmed">
+        {note}
+      </Text>
+    </Card>
+  );
+}
+
+function HonestEmptyPanel({
+  title,
+  description,
+  icon: Icon,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  icon: typeof BarChart3;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <Card
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        minHeight: 180,
+      }}
+      py="xl"
+    >
+      <Box
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 10,
+          background: "var(--mantine-color-default-hover)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--mantine-color-dimmed)",
+          marginBottom: 14,
+        }}
+      >
+        <Icon size={24} aria-hidden="true" />
+      </Box>
+      <Text fw={500} size="sm" mb={6}>
+        {title}
+      </Text>
+      <Text size="xs" c="dimmed" style={{ maxWidth: 360 }} mb="md">
+        {description}
+      </Text>
+      {actionLabel && onAction ? (
+        <Button
+          className="om-btn-ghost"
+          variant="secondary"
+          size="sm"
+          accessibleLabel={actionLabel}
+          onAction={onAction}
+        >
+          {actionLabel}
+        </Button>
+      ) : null}
+    </Card>
+  );
+}
+
+function SourceModuleCard({
+  module,
+  onOpen,
+}: {
+  module: MetricsSourceModule;
+  onOpen: (href: string) => void;
+}) {
+  return (
+    <Card padding="md" style={{ height: "100%" }}>
+      <Text fw={500} size="sm" mb="xs">
+        {module.label}
+      </Text>
+      <Text size="xs" c="dimmed" mb={6}>
+        {module.description}
+      </Text>
+      <Text size="xs" c="dimmed" mb="md">
+        {module.apiNote}
+      </Text>
+      <Button
+        className="om-btn-ghost"
+        variant="secondary"
+        size="sm"
+        accessibleLabel={`Open ${module.label}`}
+        onAction={() => {
+          onOpen(module.href);
+        }}
+      >
+        Open
+        <ArrowRight size={14} aria-hidden="true" />
+      </Button>
+    </Card>
+  );
+}
 
 /**
  * Wave G — church metrics chrome. Chart libs stay app-owned later.
- * Live KPIs from dashboard (+ charts/summary labels when flagged).
+ * Live KPIs from shared hub dashboard API (+ charts/summary labels when flagged).
  */
 export function MetricsPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [metrics, setMetrics] = useState<MetricsSlice | null>(null);
-  const [source, setSource] = useState<"preview" | "live" | "empty">("preview");
-  const [note, setNote] = useState<string | null>(null);
+  const churchId = user?.churchId;
+  const liveSession = authMode === "live" && churchId != null;
+  const metricsState = useMetricsDashboard(churchId);
 
-  useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- metrics bootstrap
-    setLoading(true);
-    void fetchChurchMetrics(user?.churchId).then((result) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (!result.ok) {
-        setMetrics(null);
-        setSource("empty");
-        setNote(result.message);
-        return;
-      }
-      if (result.source === "preview") {
-        setMetrics(null);
-        setSource("preview");
-        setNote(
-          "Preview mode — no sample KPI values shown as live. Set AUTH_MODE=live with church context to load GET /api/churches/:churchId/dashboard.",
-        );
-        return;
-      }
-      setMetrics(result.metrics);
-      setSource("live");
-      if (result.partialErrors.length > 0) {
-        setNote(result.partialErrors.join(" "));
-      } else if (
-        result.metrics.kpis.every((k) => k.value === "0") &&
-        result.metrics.distribution.every((d) => d.value === "0")
-      ) {
-        setNote("No sacramental totals for this church yet.");
-      } else {
-        setNote(null);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.churchId]);
+  const loading = metricsState.status === "loading";
+  const metrics = metricsSlice(metricsState);
+  const emptyNote = metricsEmptyNote(metricsState);
+  const session = { liveSession, churchId: churchId ?? null };
+  const statusNote = buildMetricsStatusNote({ session, state: metricsState });
+  const badgeLabel = metricsSourceBadgeLabel(metricsState, loading);
+  const emptyKpi = buildMetricsEmptyKpiCopy({ state: metricsState, loading });
+
+  const openModule = (href: string) => {
+    void navigate(href);
+  };
+
+  const badgeColor =
+    badgeLabel === "Live"
+      ? "green"
+      : badgeLabel === "Unavailable"
+        ? "red"
+        : badgeLabel === "Loading…"
+          ? "gray"
+          : "blue";
 
   return (
     <PageLayout
@@ -65,49 +234,54 @@ export function MetricsPage() {
       description="Membership trends, sacramental statistics, and parish growth over time."
     >
       <Stack gap="md">
-        <Text size="sm" c="dimmed" role="status">
-          {loading
-            ? "Loading metrics…"
-            : source === "live"
-              ? "Live metrics"
-              : source === "empty"
-                ? "Unavailable"
-                : "Preview"}
-          {authMode === "live" && user?.churchId != null
-            ? ` · church ${String(user.churchId)}`
-            : null}
-        </Text>
+        <Group justify="space-between" align="flex-start" wrap="wrap" gap="xs">
+          <Text
+            size="sm"
+            c="dimmed"
+            role="status"
+            aria-live="polite"
+            aria-busy={loading}
+            style={{ flex: 1, minWidth: 200 }}
+          >
+            {statusNote}
+            {liveSession ? ` · church ${String(churchId)}` : null}
+          </Text>
+          <Badge size="sm" variant="light" color={badgeColor}>
+            {badgeLabel}
+          </Badge>
+        </Group>
 
-        {note ? (
+        {emptyNote ? (
           <Text size="sm" role="status">
-            {note}
+            {emptyNote}
           </Text>
         ) : null}
 
-        {metrics ? (
+        {metrics && metrics.kpis.length > 0 ? (
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-            {metrics.kpis.map((metric) => (
-              <Card key={metric.label} padding="lg">
-                <Text size="xs" tt="uppercase" fw={500} c="dimmed" mb="xs">
-                  {metric.label}
-                </Text>
-                <Title order={2} style={{ fontWeight: 400, fontSize: 32 }}>
-                  {metric.value}
-                </Title>
-                <Text size="xs" c="dimmed" mt={6}>
-                  {metric.note}
-                </Text>
-              </Card>
+            {metrics.kpis.map((metric, index) => (
+              <SummaryCard
+                key={metric.label}
+                label={metric.label}
+                value={formatMetricsCount(metric.value, loading)}
+                note={metric.note}
+                icon={KPI_ICONS[index % KPI_ICONS.length] ?? TrendingUp}
+                loading={loading}
+              />
             ))}
           </SimpleGrid>
         ) : (
-          <Card padding="lg" maw={640}>
-            <Text size="sm" c="dimmed">
-              {source === "empty"
-                ? "Metrics could not be loaded."
-                : "KPI cards appear here once live dashboard data is available."}
-            </Text>
-          </Card>
+          <HonestEmptyPanel
+            title={emptyKpi.title}
+            description={emptyKpi.description}
+            icon={BarChart3}
+            actionLabel={
+              metricsState.status === "error" ? "Open parish dashboard" : "Open records"
+            }
+            onAction={() => {
+              void navigate(metricsState.status === "error" ? "/" : "/records");
+            }}
+          />
         )}
 
         <Card padding="lg">
@@ -118,14 +292,17 @@ export function MetricsPage() {
             {metrics && metrics.distribution.length > 0 ? (
               <Stack gap={4}>
                 {metrics.distribution.map((row) => (
-                  <Text key={row.label} size="sm">
-                    {row.label}: {row.value}
-                  </Text>
+                  <Group key={row.label} justify="space-between" wrap="nowrap">
+                    <Text size="sm">{row.label}</Text>
+                    <Text size="sm" fw={500}>
+                      {formatMetricsCount(row.value, loading)}
+                    </Text>
+                  </Group>
                 ))}
               </Stack>
             ) : (
               <Text size="sm" c="dimmed">
-                Baptism / marriage / funeral counts will list here from live data.
+                {buildDistributionEmptyCopy({ state: metricsState, loading })}
               </Text>
             )}
           </Stack>
@@ -137,9 +314,7 @@ export function MetricsPage() {
               Charts
             </Title>
             <Text size="sm" c="dimmed">
-              Chart rendering stays app-owned. Series load via GET
-              /api/churches/:churchId/charts/summary when OM Charts is enabled;
-              this surface shows KPI cards and labels only.
+              {buildChartsDeferredNote(metrics?.chartsEnabled ?? false)}
             </Text>
             {metrics?.seriesNotes.map((line) => (
               <Text key={line} size="sm">
@@ -148,10 +323,54 @@ export function MetricsPage() {
             ))}
             {metrics?.chartsEnabled ? (
               <Text size="xs" c="dimmed">
-                Charts summary responded; graphical series deferred.
+                GET /api/churches/:churchId/charts/summary responded; graphical
+                series deferred.
               </Text>
             ) : null}
           </Stack>
+        </Card>
+
+        <Stack gap="xs">
+          <Text
+            size="xs"
+            tt="uppercase"
+            fw={500}
+            c="dimmed"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Related modules
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+            {METRICS_SOURCE_MODULES.map((module) => (
+              <SourceModuleCard
+                key={module.href}
+                module={module}
+                onOpen={openModule}
+              />
+            ))}
+          </SimpleGrid>
+        </Stack>
+
+        <Card padding="md">
+          <Group justify="space-between" wrap="wrap" gap="sm">
+            <Group gap="xs">
+              <Home size={16} aria-hidden="true" />
+              <Text size="sm" c="dimmed">
+                Same dashboard API as the parish hub — no invented sample KPIs.
+              </Text>
+            </Group>
+            <Button
+              className="om-btn-ghost"
+              variant="secondary"
+              size="sm"
+              accessibleLabel="Open help and site map"
+              onAction={() => {
+                void navigate("/help");
+              }}
+            >
+              Help & site map
+            </Button>
+          </Group>
         </Card>
       </Stack>
     </PageLayout>

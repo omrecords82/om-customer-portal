@@ -95,6 +95,30 @@ export function HelpPage() {
         </Card>
 
         <Card padding="lg">
+          <Stack gap="sm">
+            <Title order={3} style={{ fontWeight: 500 }}>
+              Church metrics
+            </Title>
+            <Text size="sm">
+              Open Church Metrics for sacramental KPIs from the same dashboard
+              API as the parish hub. Distribution labels and optional charts
+              summary notes load in live sessions; graphical charts stay
+              deferred (no fake interactive reports).
+            </Text>
+            <Button
+              className="om-btn-ghost"
+              variant="secondary"
+              size="sm"
+              onAction={() => {
+                void navigate("/metrics");
+              }}
+            >
+              Open metrics
+            </Button>
+          </Stack>
+        </Card>
+
+        <Card padding="lg">
           <Stack gap="md">
             <Title order={3} style={{ fontWeight: 500 }}>
               Site map

@@ -451,7 +451,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Cemetery records/plots lists + deceased search (read MVP) — evidence: `cemeteryApi.ts` + `CemeteryPage` wire `GET /api/churches/:churchId/cemetery/plots` + `GET …/people/search` when `cemetery.enabled` and `AUTH_MODE=live` + churchId; preview stub otherwise; plot detail panel select; no geometry editing; no hard-coded church IDs
 - [x] Maintenance / reports navigation gated by flags — surfaces render only when `maintenanceEnabled` / `reportsEnabled` (default off)
 - [x] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off) — `cemeteryFlags.ts` + env overlays
-- [x] Church metrics / charts chrome + live KPIs — evidence: `metricsApi.ts` + `MetricsPage` wire `GET /api/churches/:churchId/dashboard` (KPIs/labels) + optional `GET …/charts/summary` label notes when OM Charts enabled; chart libs deferred; honest empty/error when not live or missing churchId
+- [x] Church metrics / charts chrome + live KPIs — evidence: `metricsApi.ts` + `MetricsPage` wire `GET /api/churches/:churchId/dashboard` (KPIs/labels) + optional `GET …/charts/summary` label notes when OM Charts enabled; chart libs deferred; honest empty/error when not live or missing churchId. **Polish (2026-07-19):** shared `fetchChurchDashboardJson` with hub; `metricsPresentation.ts` + `useMetricsDashboard`; SummaryCard/honest empties; source-module links (hub, records, certificates); Help metrics guide.
 - [ ] Liturgical calendar chrome — **POST-MVP** (in product; not a cutover blocker)
 
 **Dependencies:** Waves B, D, table patterns from C/E.  

@@ -83,7 +83,7 @@ function formatActivityDate(value: unknown): string {
   return raw.slice(0, 10);
 }
 
-function unwrapDashboardPayload(payload: unknown): HubDashboardSlice | null {
+export function unwrapDashboardPayload(payload: unknown): HubDashboardSlice | null {
   if (!payload || typeof payload !== "object") return null;
   const root = payload as Record<string, unknown>;
   const data =
@@ -149,13 +149,14 @@ function countCertificateHistoryRows(payload: unknown): number {
   return Array.isArray(list) ? list.length : 0;
 }
 
-/** GET /api/churches/:churchId/dashboard */
-export async function fetchChurchDashboard(
+export type FetchDashboardJsonResult =
+  | { readonly ok: true; readonly payload: unknown }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+/** GET /api/churches/:churchId/dashboard — shared JSON fetch for hub + metrics. */
+export async function fetchChurchDashboardJson(
   churchId: number,
-): Promise<
-  | { readonly ok: true; readonly dashboard: HubDashboardSlice }
-  | { readonly ok: false; readonly message: string; readonly status: number }
-> {
+): Promise<FetchDashboardJsonResult> {
   if (!Number.isFinite(churchId) || churchId <= 0) {
     return { ok: false, message: "Invalid church id.", status: 400 };
   }
@@ -172,15 +173,14 @@ export async function fetchChurchDashboard(
       };
     }
     const payload: unknown = await res.json().catch(() => null);
-    const dashboard = unwrapDashboardPayload(payload);
-    if (!dashboard) {
+    if (!payload || typeof payload !== "object") {
       return {
         ok: false,
         message: "Dashboard response was empty or malformed.",
         status: 502,
       };
     }
-    return { ok: true, dashboard };
+    return { ok: true, payload };
   } catch {
     return {
       ok: false,
@@ -188,6 +188,28 @@ export async function fetchChurchDashboard(
       status: 0,
     };
   }
+}
+
+/** GET /api/churches/:churchId/dashboard */
+export async function fetchChurchDashboard(
+  churchId: number,
+): Promise<
+  | { readonly ok: true; readonly dashboard: HubDashboardSlice }
+  | { readonly ok: false; readonly message: string; readonly status: number }
+> {
+  const jsonRes = await fetchChurchDashboardJson(churchId);
+  if (!jsonRes.ok) {
+    return jsonRes;
+  }
+  const dashboard = unwrapDashboardPayload(jsonRes.payload);
+  if (!dashboard) {
+    return {
+      ok: false,
+      message: "Dashboard response was empty or malformed.",
+      status: 502,
+    };
+  }
+  return { ok: true, dashboard };
 }
 
 /** GET /api/certificates/history?church_id=&limit= for issued count. */
