@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
 import { TextField } from "@om/ui/text-field";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,11 +18,13 @@ import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import {
   createBaptismRecord,
+  deleteBaptismRecord,
   fetchBaptismRecord,
   fetchClergyOptions,
   fetchLocationOptions,
   updateBaptismRecord,
 } from "./baptismEditorApi";
+import { BaptismHistoryPanel } from "./BaptismHistoryPanel";
 import {
   EMPTY_BAPTISM_FORM,
   formStateToCreatePayload,
@@ -33,6 +36,7 @@ import {
 } from "./baptismEditorMappers";
 import {
   buildRecordsEditorRoute,
+  canManageRecords,
   canNavigateToRecordsEditor,
   resolveRecordsEditorFlags,
 } from "./recordsEditorFlags";
@@ -77,6 +81,9 @@ export function BaptismEditorPage() {
   const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -85,6 +92,10 @@ export function BaptismEditorPage() {
   const [lookupsLoading, setLookupsLoading] = useState(false);
 
   const pageTitle = mode === "create" ? "New baptism record" : "Edit baptism record";
+  const canDelete = mode === "edit" && canManageRecords(user?.role ?? undefined);
+  const deleteTargetName =
+    [form.first_name, form.last_name].filter(Boolean).join(" ").trim() ||
+    (numericId != null ? `record #${String(numericId)}` : "this record");
 
   const updateField = useCallback(
     <K extends keyof BaptismFormState>(key: K, value: BaptismFormState[K]) => {
@@ -186,6 +197,7 @@ export function BaptismEditorPage() {
     }
 
     setStatusMessage(mode === "create" ? "Baptism record created." : "Baptism record saved.");
+    setHistoryRefreshKey((value) => value + 1);
     if (mode === "create") {
       navigate(buildRecordsEditorRoute("baptism", { recordId: result.data.id, action: "edit" }), {
         replace: true,
@@ -195,6 +207,25 @@ export function BaptismEditorPage() {
 
   function handleCancel() {
     navigate("/records?type=baptism");
+  }
+
+  async function handleDelete() {
+    if (numericId == null) return;
+
+    setError(null);
+    setDeleting(true);
+    const result = await deleteBaptismRecord(churchId, numericId);
+    setDeleting(false);
+    setDeleteConfirmOpen(false);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
+    navigate("/records?type=baptism", {
+      state: { recordsNotice: "Baptism record deleted." },
+    });
   }
 
   if (!ready) {
@@ -250,11 +281,22 @@ export function BaptismEditorPage() {
       description="Sacramental baptism entry — saved through Orthodox Metrics REST APIs with parish-scoped church_id from your session."
       action={
         <Group gap="xs">
+          {canDelete ? (
+            <Button
+              className="om-btn-destructive"
+              variant="destructive"
+              size="sm"
+              isDisabled={loading || saving || deleting}
+              onAction={() => setDeleteConfirmOpen(true)}
+            >
+              Delete record
+            </Button>
+          ) : null}
           <Button
             className="om-btn-ghost"
             variant="secondary"
             size="sm"
-            isDisabled={saving}
+            isDisabled={saving || deleting}
             onAction={handleCancel}
           >
             Cancel
@@ -262,7 +304,7 @@ export function BaptismEditorPage() {
           <Button
             className="om-btn-primary"
             size="sm"
-            isDisabled={loading || saving}
+            isDisabled={loading || saving || deleting}
             onAction={() => void handleSave()}
           >
             {saving ? "Saving…" : mode === "create" ? "Create record" : "Save changes"}
@@ -365,7 +407,32 @@ export function BaptismEditorPage() {
             />
           </Stack>
         ) : null}
+
+        {mode === "edit" ? (
+          <BaptismHistoryPanel
+            churchId={churchId}
+            recordId={numericId}
+            refreshKey={historyRefreshKey}
+          />
+        ) : null}
       </Stack>
+
+      <AlertDialog
+        title="Delete baptism record?"
+        description={`Permanently delete ${deleteTargetName}? This writes a delete event to audit history and cannot be undone.`}
+        confirmLabel="Delete record"
+        cancelLabel="Cancel"
+        intent="destructive"
+        isConfirmPending={deleting}
+        isOpen={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteConfirmOpen(false);
+        }}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => {
+          if (!deleting) setDeleteConfirmOpen(false);
+        }}
+      />
     </PageLayout>
   );
 }

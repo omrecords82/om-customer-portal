@@ -17,7 +17,7 @@ OM role hierarchy (canonical, highest first): `super_admin` → `admin` → `chu
 | **Read** list / single record | `requireAuth` on `GET /api/*-records` and `GET /api/*-records/:id`; scoped by `church_id` query and/or session `church_id` + per-church DB | Live list when `AUTH_MODE=live` + session `user.churchId`; read-only UI | Same read path; detail drawer uses `GET /api/*-records/:id?church_id=` |
 | **Create** | `POST /api/*-records` — `requireAuth`; field validation in route handlers | **Not exposed** (editors blocked) | `canManageRecords` (deacon+) before showing create; POST body includes session `church_id` |
 | **Update** | `PUT /api/*-records/:id` — `requireAuth`; writes sacrament history on change | **Not exposed** | `canManageRecords` (deacon+) for edit affordances |
-| **Delete** | `DELETE /api/*-records/:id` — `requireAuth`; history event on delete | **Not exposed** | `canManageRecords` (deacon+) + destructive confirm (`@om/ui` AlertDialog) |
+| **Delete** | `DELETE /api/*-records/:id` — `requireAuth`; history event on delete | **Baptism editor (2026-07-19):** `DELETE /api/baptism-records/:id?church_id=` via `deleteBaptismRecord`; deacon+ client gate + AlertDialog confirm | `canManageRecords` (deacon+) + destructive confirm (`@om/ui` AlertDialog) |
 | **Status / verification** | `PATCH /api/*-records/:id/status` — clergy/admin workflows | **Not exposed** | Priest+ or church_admin per legacy parity (confirm in editor QA) |
 | **Export / import** | Separate admin/import routes | Out of Wave H scope | Document when product requests |
 
@@ -74,7 +74,7 @@ Vitest: `src/features/records/recordsApi.test.ts` — section **“tenant isolat
 ### Wave H editor expectations
 
 - Every successful **mutating** editor action must go through existing OM REST endpoints so `writeSacramentHistory` runs with `source: 'ui'` (or `'api'` if proxied).
-- Editor UI should surface **record history** via `GET /api/*-records/:id/history` when product adds a history panel (optional Wave H stretch; not required for list gate).
+- Editor UI surfaces **record history** via `GET /api/*-records/:id/history` — **Baptism shipped (2026-07-19):** `BaptismHistoryPanel`, `fetchBaptismHistory`, honest empty/error states on edit screen.
 - Portal error logging: production builds rely on OM/server logs for failed API calls; no new portal audit store.
 
 ---
@@ -90,7 +90,7 @@ Vitest: `src/features/records/recordsApi.test.ts` — section **“tenant isolat
 
 **Gate status (2026-07-19):** **Closed** — schemas published (`@omrecords82/contracts@0.2.0`), portal pin bumped, `pnpm install` verified. **Consumption gate closed.**
 
-**Baptism editor (2026-07-19):** **Authorized and shipped** — `BaptismEditorPage`, `baptismEditorApi.ts`, `baptismEditorMappers.ts`; routes `/records/baptism/new` and `/records/baptism/:id/edit`; `RECORDS_EDITOR_UI_SHIPPED.baptism=true`; live `/portal2` deploy sets `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true` (marriage/funeral flags remain false). Marriage/funeral editors follow Baptism pattern when authorized.
+**Baptism editor (2026-07-19):** **Authorized and shipped** — `BaptismEditorPage`, `baptismEditorApi.ts`, `baptismEditorMappers.ts`; routes `/records/baptism/new` and `/records/baptism/:id/edit`; `RECORDS_EDITOR_UI_SHIPPED.baptism=true`; live `/portal2` deploy sets `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true` (marriage/funeral flags remain false). **History panel + delete (2026-07-19):** `BaptismHistoryPanel`, `GET /api/baptism-records/:id/history`, `DELETE /api/baptism-records/:id?church_id=` with deacon+ gate + AlertDialog. Marriage/funeral editors follow Baptism pattern when authorized.
 
 **Schema exports (0.2.0):** `parseBaptismRecordCreate|Update`, `parseMarriageRecordCreate|Update`, `parseFuneralRecordCreate|Update`, list query/response parsers, `SACRAMENT_RECORD_STATUSES`, `CURRENT_RECORDS_SCHEMA_VERSION`.
 
@@ -124,7 +124,7 @@ Free-text entry remains allowed where legacy editors allow it; canonical entitie
 3. **Parity checks:** create → list appears → edit → history entry → delete (where allowed) on same `church_id`.
 4. **Order:** Baptism editor first; marriage/funeral reuse pattern — **do not enable more than one flag at a time** (`hasDualRunPilotConflict` blocks editor affordances when violated).
 
-**Portal wiring (2026-07-19):** flag module + tests shipped; `RecordsPage` shows `describeRecordsEditorGateStatus` note; **Baptism editor UI shipped** (`BaptismEditorPage`, list row click / New baptism / `?recordId=` deep link when flag + auth gates pass). Marriage/funeral editor routes remain unshipped.
+**Portal wiring (2026-07-19):** flag module + tests shipped; `RecordsPage` shows `describeRecordsEditorGateStatus` note; **Baptism editor UI shipped** (`BaptismEditorPage`, list row click / New baptism / `?recordId=` deep link when flag + auth gates pass). **Baptism history + delete shipped** on edit screen. Marriage/funeral editor routes remain unshipped.
 
 ### Rollback
 

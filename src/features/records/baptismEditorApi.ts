@@ -7,6 +7,7 @@ import {
   parseBaptismRowFromApi,
   type BaptismFormState,
 } from "./baptismEditorMappers";
+import type { BaptismHistoryEntry } from "./baptismEditorPresentation";
 
 export type LookupOption = {
   readonly value: string;
@@ -18,6 +19,22 @@ export type BaptismEditorResult<T> =
   | { readonly ok: false; readonly status: number; readonly message: string };
 
 export function buildBaptismRecordGetUrl(
+  recordId: number,
+  churchId: number,
+): string {
+  const params = new URLSearchParams({ church_id: String(churchId) });
+  return `/api/baptism-records/${String(recordId)}?${params.toString()}`;
+}
+
+export function buildBaptismHistoryUrl(
+  recordId: number,
+  churchId: number,
+): string {
+  const params = new URLSearchParams({ church_id: String(churchId) });
+  return `/api/baptism-records/${String(recordId)}/history?${params.toString()}`;
+}
+
+export function buildBaptismRecordDeleteUrl(
   recordId: number,
   churchId: number,
 ): string {
@@ -74,6 +91,52 @@ export function unwrapLookupItems(payload: unknown): LookupOption[] {
     if (!value) continue;
     const label = asString(row.label ?? row.value).trim() || value;
     out.push({ value, label });
+  }
+  return out;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function unwrapBaptismHistory(payload: unknown): BaptismHistoryEntry[] {
+  if (!payload || typeof payload !== "object") return [];
+  const obj = payload as Record<string, unknown>;
+  const raw = obj.history ?? obj.data ?? obj.entries;
+  if (!Array.isArray(raw)) return [];
+
+  const out: BaptismHistoryEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const id = asNumber(row.id);
+    if (id == null || id <= 0) continue;
+
+    const changedRaw = row.changedFields ?? row.changed_fields;
+    const changedFields = Array.isArray(changedRaw)
+      ? changedRaw.filter((field): field is string => typeof field === "string")
+      : [];
+
+    out.push({
+      id,
+      type: asString(row.type).trim() || "event",
+      description: asString(row.description).trim(),
+      timestamp: asString(row.timestamp).trim(),
+      actor:
+        row.actor == null
+          ? null
+          : asString(row.actor).trim() || null,
+      source:
+        row.source == null
+          ? null
+          : asString(row.source).trim() || null,
+      changedFields,
+    });
   }
   return out;
 }
@@ -249,4 +312,62 @@ export async function fetchLocationOptions(
   }
   const payload: unknown = await res.json();
   return { ok: true, data: unwrapLookupItems(payload) };
+}
+
+export async function fetchBaptismHistory(
+  churchId: number,
+  recordId: number,
+): Promise<BaptismEditorResult<readonly BaptismHistoryEntry[]>> {
+  if (authMode !== "live") {
+    return {
+      ok: false,
+      status: 503,
+      message: "Baptism history requires live auth with church context.",
+    };
+  }
+  if (churchId <= 0) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Church context required — sign in with a parish account.",
+    };
+  }
+
+  const res = await apiFetch(buildBaptismHistoryUrl(recordId, churchId));
+  if (!res.ok) {
+    return { ok: false, status: res.status, message: await readApiError(res) };
+  }
+
+  const payload: unknown = await res.json();
+  return { ok: true, data: unwrapBaptismHistory(payload) };
+}
+
+export async function deleteBaptismRecord(
+  churchId: number,
+  recordId: number,
+): Promise<BaptismEditorResult<null>> {
+  if (authMode !== "live") {
+    return {
+      ok: false,
+      status: 503,
+      message: "Baptism delete requires live auth with church context.",
+    };
+  }
+  if (churchId <= 0) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Church context required — sign in with a parish account.",
+    };
+  }
+
+  const res = await apiFetch(buildBaptismRecordDeleteUrl(recordId, churchId), {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    return { ok: false, status: res.status, message: await readApiError(res) };
+  }
+
+  return { ok: true, data: null };
 }

@@ -493,9 +493,9 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 - [x] Canonical record schema via `@om/contracts` — **consumed** `@omrecords82/contracts@0.2.0` in portal (`package.json` + lockfile)
 - [x] Baptism entry & edit flow on `@om/ui` + forms patterns — evidence: `BaptismEditorPage.tsx`, `baptismEditorApi.ts`, `baptismEditorMappers.ts` + tests; `@om/contracts` parsers; `POST/PUT/GET /api/baptism-records`; clergy/location lookups; `RecordsPage` row click / New baptism / `?recordId=`; routes in `App.tsx`; dual-run on `/portal2` with `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true`
+- [x] Baptism delete flow + record history panel — evidence: `BaptismHistoryPanel.tsx`, `fetchBaptismHistory` / `deleteBaptismRecord` in `baptismEditorApi.ts`; `GET /api/baptism-records/:id/history`, `DELETE /api/baptism-records/:id?church_id=`; deacon+ gate + AlertDialog confirm; tests in `baptismEditorHistory.test.ts`
 - [ ] Marriage entry & edit flow (reuse baptism pattern)
 - [ ] Funeral entry & edit flow (reuse baptism pattern)
-- [ ] Delete flow + record history panel (optional Wave H stretch)
 
 **Dependencies:** Wave E deep links done; schema contract; live auth/church context; docs for permissions/audit/dual-run.  
 **Do not start early.** Highest regression risk in the program.
