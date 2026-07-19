@@ -17,26 +17,31 @@ import {
   Camera,
   CheckCircle2,
   Crop,
+  Download,
   FolderOpen,
   QrCode,
+  RefreshCw,
   RotateCw,
   Upload,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import {
+  canDownloadOcrJob,
   canRetryOcrJob,
   canSeedOcrJob,
-  fetchChurchOcrJobs,
+  downloadOcrJobResults,
   mapOcrJobToWizardStatus,
+  OCR_LIVE_CUTOFF_NOTES,
   retryChurchOcrJob,
   seedChurchOcrJob,
   uploadOcrJobPages,
   type OcrJobDto,
 } from "../ocr-desktop/ocrApi";
+import { useOcrJobsPolling } from "../ocr-desktop/useOcrJobsPolling";
 import {
   buildMockDemoPages,
   createCapturePagesFromFiles,
@@ -154,12 +159,9 @@ export function OcrMobilePage() {
   const [recordType, setRecordType] = useState<string | null>("Baptism");
   const [captureMessage, setCaptureMessage] = useState<string | null>(null);
   const [uploadPending, setUploadPending] = useState(false);
-  const [jobs, setJobs] = useState<readonly OcrJobDto[]>([]);
-  const [jobsSource, setJobsSource] = useState<"mock" | "live">("mock");
-  const [jobsLoading, setJobsLoading] = useState(false);
-  const [jobsError, setJobsError] = useState<string | null>(null);
   const [actionPendingId, setActionPendingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [downloadPendingId, setDownloadPendingId] = useState<string | null>(null);
   const [pendingSeedId, setPendingSeedId] = useState<string | null>(null);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +171,15 @@ export function OcrMobilePage() {
   const churchId = user?.churchId;
   const liveEligible =
     authMode === "live" && churchId != null && churchId > 0;
-  const liveJobs = jobsSource === "live" && liveEligible;
+  const jobsPoll = useOcrJobsPolling({
+    churchId,
+    enabled: liveEligible && phase === 4,
+    limit: 20,
+  });
+  const liveJobs = liveEligible && jobsPoll.source === "live";
+  const jobs = jobsPoll.jobs;
+  const jobsLoading = jobsPoll.loading;
+  const jobsError = jobsPoll.error;
 
   const warningCount = useMemo(
     () => pages.filter((p) => p.quality !== null).length,
@@ -192,48 +202,6 @@ export function OcrMobilePage() {
       revokeCapturePreviewUrls(pagesRef.current);
     };
   }, []);
-
-  const reloadLiveJobs = useCallback((id: number) => {
-    setJobsLoading(true);
-    setJobsError(null);
-    return fetchChurchOcrJobs(id, 20).then((result) => {
-      setJobsLoading(false);
-      if (!result.ok) {
-        setJobsError(result.message);
-        setJobsSource("mock");
-        setJobs([]);
-        return;
-      }
-      setJobsSource("live");
-      setJobs(result.jobs);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (phase !== 4 || authMode !== "live" || churchId == null || churchId <= 0) {
-      return;
-    }
-    const scopedChurchId = churchId;
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- external OCR jobs fetch on OCR phase
-    setJobsLoading(true);
-    setJobsError(null);
-    void fetchChurchOcrJobs(scopedChurchId, 20).then((result) => {
-      if (cancelled) return;
-      setJobsLoading(false);
-      if (!result.ok) {
-        setJobsError(result.message);
-        setJobsSource("mock");
-        setJobs([]);
-        return;
-      }
-      setJobsSource("live");
-      setJobs(result.jobs);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, churchId]);
 
   function goCapture() {
     revokeCapturePreviewUrls(pages);
@@ -428,7 +396,25 @@ export function OcrMobilePage() {
       setActionMessage(
         `Retry queued for “${job.original_filename ?? job.filename}”.`,
       );
-      void reloadLiveJobs(churchId);
+      void jobsPoll.reload();
+    });
+  };
+
+  const runDownload = (job: OcrJobDto) => {
+    if (!churchId) return;
+    setDownloadPendingId(job.id);
+    setActionMessage(null);
+    void downloadOcrJobResults({
+      churchId,
+      jobId: job.id,
+      filenameHint: `${(job.original_filename ?? job.filename).replace(/\s+/g, "-").toLowerCase()}.txt`,
+    }).then((result) => {
+      setDownloadPendingId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(`Downloaded “${result.filename}”.`);
     });
   };
 
@@ -446,7 +432,7 @@ export function OcrMobilePage() {
       setActionMessage(
         `Seeded “${job.original_filename ?? job.filename}” into records.`,
       );
-      void reloadLiveJobs(churchId);
+      void jobsPoll.reload();
     });
   };
 
@@ -795,10 +781,17 @@ export function OcrMobilePage() {
 
               {liveJobs ? (
                 <>
+                  {OCR_LIVE_CUTOFF_NOTES.map((note) => (
+                    <Text key={note} size="xs" c="dimmed">
+                      {note}
+                    </Text>
+                  ))}
                   <Text size="sm" c="dimmed">
                     {jobsLoading
                       ? "Loading OCR jobs…"
-                      : "Live church OCR jobs — Retry failed jobs or Seed when ready_to_seed."}
+                      : jobsPoll.shouldPoll
+                        ? "Live church OCR jobs — refreshing while processing…"
+                        : "Live church OCR jobs — Retry, Seed, and Download when eligible."}
                     {jobsError ? ` · ${jobsError}` : ""}
                   </Text>
                   {actionMessage ? (
@@ -816,8 +809,10 @@ export function OcrMobilePage() {
                       {jobs.map((job) => {
                         const wizard = mapOcrJobToWizardStatus(job);
                         const pending = actionPendingId === job.id;
+                        const downloading = downloadPendingId === job.id;
                         const retryEligible = canRetryOcrJob(job);
                         const seedEligible = canSeedOcrJob(job);
+                        const downloadEligible = canDownloadOcrJob(job);
                         return (
                           <Box
                             key={job.id}
@@ -845,7 +840,7 @@ export function OcrMobilePage() {
                                   {job.error_message}
                                 </Text>
                               ) : null}
-                              {retryEligible || seedEligible ? (
+                              {retryEligible || seedEligible || downloadEligible ? (
                                 <Group gap="xs">
                                   {retryEligible ? (
                                     <Button
@@ -856,6 +851,18 @@ export function OcrMobilePage() {
                                       onAction={() => runRetry(job)}
                                     >
                                       {pending ? "…" : "Retry"}
+                                    </Button>
+                                  ) : null}
+                                  {downloadEligible ? (
+                                    <Button
+                                      className="om-btn-ghost"
+                                      variant="secondary"
+                                      size="sm"
+                                      isDisabled={downloading}
+                                      onAction={() => runDownload(job)}
+                                    >
+                                      <Download size={14} aria-hidden />
+                                      {downloading ? "…" : "Download"}
                                     </Button>
                                   ) : null}
                                   {seedEligible ? (
@@ -883,9 +890,10 @@ export function OcrMobilePage() {
                     size="sm"
                     isDisabled={jobsLoading || !churchId}
                     onAction={() => {
-                      if (churchId) void reloadLiveJobs(churchId);
+                      void jobsPoll.reload();
                     }}
                   >
+                    <RefreshCw size={14} aria-hidden />
                     Refresh jobs
                   </Button>
                 </>

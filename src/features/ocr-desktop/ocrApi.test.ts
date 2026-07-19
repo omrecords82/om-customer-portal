@@ -6,8 +6,11 @@ vi.mock("../../auth/apiFetch", () => ({
 
 import { apiFetch } from "../../auth/apiFetch";
 import {
+  canDownloadOcrJob,
   canRetryOcrJob,
   canSeedOcrJob,
+  downloadOcrJobResults,
+  isOcrJobTerminal,
   mapOcrJobToWizardStatus,
   retryChurchOcrJob,
   seedChurchOcrJob,
@@ -47,6 +50,35 @@ describe("canRetryOcrJob / canSeedOcrJob", () => {
     expect(canSeedOcrJob({ review_status: "ready_to_seed" })).toBe(true);
     expect(canSeedOcrJob({ review_status: "agent_extracted" })).toBe(false);
     expect(canSeedOcrJob({ review_status: "seeded" })).toBe(false);
+  });
+});
+
+describe("isOcrJobTerminal / canDownloadOcrJob", () => {
+  it("treats failed and finished review stages as terminal", () => {
+    expect(isOcrJobTerminal({ status: "failed", review_status: "uploaded" })).toBe(
+      true,
+    );
+    expect(
+      isOcrJobTerminal({ status: "done", review_status: "ready_to_seed" }),
+    ).toBe(true);
+    expect(
+      isOcrJobTerminal({ status: "processing", review_status: "uploaded" }),
+    ).toBe(false);
+  });
+
+  it("allows download for review-ready and seeded jobs", () => {
+    expect(
+      canDownloadOcrJob({
+        status: "done",
+        review_status: "agent_extracted",
+      }),
+    ).toBe(true);
+    expect(
+      canDownloadOcrJob({ status: "done", review_status: "seeded" }),
+    ).toBe(true);
+    expect(
+      canDownloadOcrJob({ status: "processing", review_status: "uploaded" }),
+    ).toBe(false);
   });
 });
 
@@ -148,5 +180,44 @@ describe("uploadOcrJobPages", () => {
       status: 400,
     });
     expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("downloadOcrJobResults", () => {
+  afterEach(() => {
+    mockedApiFetch.mockReset();
+  });
+
+  it("rejects invalid ids without calling the API", async () => {
+    const result = await downloadOcrJobResults({
+      churchId: 0,
+      jobId: "",
+    });
+    expect(result).toEqual({
+      ok: false,
+      message: "Invalid church or job id.",
+    });
+    expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("surfaces HTTP failure from download route", async () => {
+    mockedApiFetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    const result = await downloadOcrJobResults({
+      churchId: 46,
+      jobId: "42",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Download failed (404).",
+    });
+    expect(mockedApiFetch).toHaveBeenCalledWith(
+      "/api/church/46/ocr/jobs/42/download",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });

@@ -263,3 +263,102 @@ export function canSeedOcrJob(job: {
 }): boolean {
   return job.review_status === "ready_to_seed";
 }
+
+const TERMINAL_REVIEW_STATUSES = new Set([
+  "agent_extracted",
+  "ready_to_seed",
+  "seeded",
+  "returned",
+]);
+
+/** True once OCR pipeline reached a stage where background processing finished. */
+export function isOcrJobTerminal(job: {
+  readonly status: string;
+  readonly review_status?: string | null;
+}): boolean {
+  const status = job.status.toLowerCase();
+  if (status === "failed" || status === "error") return true;
+  const reviewStatus = job.review_status ?? "uploaded";
+  return TERMINAL_REVIEW_STATUSES.has(reviewStatus);
+}
+
+/** True when GET …/jobs/:jobId/download may return OCR text or JSON. */
+export function canDownloadOcrJob(job: {
+  readonly status: string;
+  readonly review_status?: string | null;
+}): boolean {
+  const wizard = mapOcrJobToWizardStatus(job);
+  return wizard === "ready-for-review" || wizard === "completed";
+}
+
+/** Church-scoped page image URL (legacy parity). */
+export function ocrJobImageUrl(churchId: number, jobId: string): string {
+  return `/api/church/${String(churchId)}/ocr/jobs/${encodeURIComponent(jobId)}/image`;
+}
+
+export type DownloadOcrJobResult =
+  | { readonly ok: true; readonly filename: string }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * GET /api/church/:churchId/ocr/jobs/:jobId/download — TXT (default) or JSON export.
+ * Uses authenticated apiFetch (session/JWT); direct anchor hrefs omit Authorization.
+ */
+export async function downloadOcrJobResults(opts: {
+  readonly churchId: number;
+  readonly jobId: string;
+  readonly format?: "txt" | "json";
+  readonly filenameHint?: string;
+}): Promise<DownloadOcrJobResult> {
+  if (!Number.isFinite(opts.churchId) || opts.churchId <= 0 || !opts.jobId) {
+    return { ok: false, message: "Invalid church or job id." };
+  }
+
+  const format = opts.format ?? "txt";
+  const query = format === "json" ? "?format=json" : "";
+
+  try {
+    const res = await apiFetch(
+      `/api/church/${String(opts.churchId)}/ocr/jobs/${encodeURIComponent(opts.jobId)}/download${query}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: format === "json" ? "application/json" : "text/plain",
+        },
+      },
+    );
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Download failed (${String(res.status)}).`,
+      };
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = /filename="([^"]+)"/i.exec(disposition);
+    const filename =
+      match?.[1] ??
+      opts.filenameHint ??
+      `ocr-job-${opts.jobId}.${format === "json" ? "json" : "txt"}`;
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(anchor);
+    return { ok: true, filename };
+  } catch {
+    return { ok: false, message: "Network error downloading OCR results." };
+  }
+}
+
+/** Honest MVP scope notes — full review studio remains legacy/deferred. */
+export const OCR_LIVE_CUTOFF_NOTES = [
+  "Field review, crop/rotate, and confirm-extract run in legacy OCR studio until Wave H parity.",
+  "Batch delete and mobile QR pairing are not wired in Customer Portal MVP.",
+  "Configure/review wizard steps after upload are preview chrome; live upload + history Retry/Seed/Download use OM APIs.",
+] as const;

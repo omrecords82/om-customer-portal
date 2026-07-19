@@ -339,6 +339,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
 - [x] Wire **live** OCR job history + upload + **retry/seed** when `AUTH_MODE=live` + church context (`ocrApi.ts`: `fetchChurchOcrJobs`, `uploadOcrJobPages`, `retryChurchOcrJob`, `seedChurchOcrJob`); desktop history + mobile OCR-phase Retry/Seed wired (shared client helpers)
 - [x] **Mobile capture-phase live upload** — when `AUTH_MODE=live` + churchId, Capture / Choose files call `uploadOcrJobPages` (record-type select; empty start grid; failed retry re-POSTs retained files); mock mode keeps demo thumbs + local-only ingest with honest preview copy. Evidence: `ocrMobileCapture.ts` + `OcrMobilePage.tsx` + tests
+- [x] **Live OCR cutover polish** — status polling (`useOcrJobsPolling.ts`), honest empty/error (no mock fallback on live API failure), Retry/Seed/Download on eligible jobs (`downloadOcrJobResults` → `GET …/jobs/:jobId/download`), cutoff notes (`OCR_LIVE_CUTOFF_NOTES`); evidence: `ocrApi.ts`, `OcrDesktopPage.tsx`, `OcrMobilePage.tsx`, `ocrApi.test.ts`
 - [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)
@@ -347,6 +348,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
 - [x] Job history list + filters; batch actions with AlertDialog confirms
 - [x] Integrate with existing OM OCR job APIs for **retry/seed** (history + upload live when auth live) — evidence: `ocrApi.ts` + `OcrDesktopPage` Retry/Seed; routes `POST /api/church/:id/ocr/jobs/:jobId/{retry,seed}`
+- [x] Live job **status polling**, **results download**, honest **empty/error** states, and **cutoff notes** for deferred review studio / delete / QR pairing — evidence: `useOcrJobsPolling.ts`, `downloadOcrJobResults`, `OCR_LIVE_CUTOFF_NOTES`, desktop session processing poll
 - [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 
 #### BP-3 — OM Onboard (full implementation)
@@ -358,8 +360,8 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Live GET `/api/onboarding/provisioning-checklist` + `/api/onboarding/me` when `AUTH_MODE=live`; preview keeps local device progress — evidence: `onboardApi.ts` + `OnboardPage.tsx` + tests
 
 **Dependencies:** Wave A (harden); Wave B for live APIs; GAP-FORM-ALERT / temporary menu adapters as needed.  
-**Blockers:** operator visual QA **recorded APPROVED 2026-07-19**; live OCR APIs remain open for cutover DoD (do not treat live OCR as complete).  
-**Priority:** Wave BP UX accepted; live OCR history/upload/retry/seed + **mobile capture-phase upload** wired when auth live; remaining live OCR polish + Cutover DoD still open.
+**Blockers:** operator visual QA **recorded APPROVED 2026-07-19**; live OCR MVP workflow wired for cutover (upload, history, polling, retry/seed/download, honest empties). Full in-portal review studio remains deferred.  
+**Priority:** Wave BP UX + live OCR cutover DoD **closed for MVP**; Wave H editors / Wave K Go/No-Go remain open.
 
 ---
 
@@ -416,7 +418,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
-**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves. Certificate generate/render chrome is live-ready; assets + interactive reports remain deferred.
+**Blockers:** Live OCR MVP workflow wired (Wave BP cutover polish **2026-07-19**); assets do **not** block other waves. Certificate generate/render chrome is live-ready; assets + interactive reports remain deferred.
 
 ---
 
@@ -659,7 +661,7 @@ All must be true for **global** readiness (Wave K). Pilot live auth may proceed 
 2. **Temporary shell RAC adapters** (approved) while Codex closes GAP-LINK-* / GAP-MENU-RICH — do not block portal work  
 3. **GAP-TOAST + GAP-FORM-ALERT** (Codex) — decision settled for toast; implement `@om/ui/toast` + FormAlert  
 4. **Wave B** — Auth & session; **pilot live enablement** for allowlisted tenants  
-5. **Wave BP visual QA** — operator sign-off **APPROVED** 2026-07-19; continue **live OCR API** integration  
+5. **Wave BP visual QA** — operator sign-off **APPROVED** 2026-07-19; live OCR cutover DoD **closed** (polling, download, honest empties, cutoff notes)
 6. **Wave C** — Account & parish settings → live persistence  
 7. **Wave D** — Hub depth with live/honest empty states  
 8. **Wave E** — Records chrome + **deep-link implementation/tests**  

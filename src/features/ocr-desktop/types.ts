@@ -21,4 +21,7 @@ export type Batch = {
   /** Live OCR job id when historySource is live (parity with church-scoped job APIs). */
   readonly jobId?: string;
   readonly reviewStatus?: string | null;
+  /** Raw OM job.status for retry/download helpers. */
+  readonly jobStatus?: string;
+  readonly errorMessage?: string | null;
 };

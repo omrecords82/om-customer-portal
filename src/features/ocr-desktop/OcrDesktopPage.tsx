@@ -19,11 +19,13 @@ import {
   CheckCircle2,
   Circle,
   Eye,
+  Download,
   FileText,
   LayoutGrid,
   List,
   Loader2,
   Plus,
+  RefreshCw,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -33,14 +35,18 @@ import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { filterBatches } from "./filterBatches";
 import {
+  canDownloadOcrJob,
+  canRetryOcrJob,
   canSeedOcrJob,
-  fetchChurchOcrJobs,
+  downloadOcrJobResults,
   mapOcrJobToWizardStatus,
+  OCR_LIVE_CUTOFF_NOTES,
   retryChurchOcrJob,
   seedChurchOcrJob,
   uploadOcrJobPages,
+  type OcrJobDto,
 } from "./ocrApi";
-import type { OcrJobDto } from "./ocrApi";
+import { useOcrJobsPolling } from "./useOcrJobsPolling";
 import type { Batch, BatchStatus, ProcessingMode } from "./types";
 
 function mapJobsToBatches(jobs: readonly OcrJobDto[]): Batch[] {
@@ -60,6 +66,8 @@ function mapJobsToBatches(jobs: readonly OcrJobDto[]): Batch[] {
       status,
       needsReview: status === "ready-for-review" ? 1 : 0,
       reviewStatus: job.review_status ?? null,
+      jobStatus: job.status,
+      errorMessage: job.error_message ?? null,
     };
   });
 }
@@ -192,10 +200,8 @@ export function OcrDesktopPage() {
   const { user } = useAuth();
   const [screen, setScreen] = useState<Screen>("history");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
-  const [batches, setBatches] = useState(INITIAL_BATCHES);
-  const [historySource, setHistorySource] = useState<"mock" | "live">("mock");
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [mockBatches, setMockBatches] = useState(INITIAL_BATCHES);
+  const [sessionJobIds, setSessionJobIds] = useState<readonly string[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>("all");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -208,49 +214,43 @@ export function OcrDesktopPage() {
   const [uploadPending, setUploadPending] = useState(false);
   const [actionPendingId, setActionPendingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [downloadPendingId, setDownloadPendingId] = useState<string | null>(null);
   const [pendingSeedId, setPendingSeedId] = useState<string | null>(null);
   const [procStep, setProcStep] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const reloadLiveHistory = (churchId: number) => {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    return fetchChurchOcrJobs(churchId).then((result) => {
-      setHistoryLoading(false);
-      if (!result.ok) {
-        setHistoryError(result.message);
-        setHistorySource("mock");
-        return;
-      }
-      setHistorySource("live");
-      setBatches(mapJobsToBatches(result.jobs));
-    });
-  };
+  const churchId = user?.churchId;
+  const liveEligible =
+    authMode === "live" && churchId != null && churchId > 0;
 
-  useEffect(() => {
-    const churchId = user?.churchId;
-    if (authMode !== "live" || churchId == null || churchId <= 0) {
-      return;
+  const historyPoll = useOcrJobsPolling({
+    churchId,
+    enabled: liveEligible && screen === "history",
+    limit: 50,
+  });
+
+  const sessionPoll = useOcrJobsPolling({
+    churchId,
+    enabled: liveEligible && screen === "processing" && sessionJobIds.length > 0,
+    jobIds: sessionJobIds,
+    limit: 50,
+  });
+
+  const historySource = liveEligible
+    ? historyPoll.source === "live"
+      ? "live"
+      : historyPoll.source === "error"
+        ? "error"
+        : "loading"
+    : "mock";
+
+  const batches = useMemo(() => {
+    if (liveEligible && historyPoll.source === "live") {
+      return mapJobsToBatches(historyPoll.jobs);
     }
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- external OCR jobs fetch bootstrap
-    setHistoryLoading(true);
-    setHistoryError(null);
-    void fetchChurchOcrJobs(churchId).then((result) => {
-      if (cancelled) return;
-      setHistoryLoading(false);
-      if (!result.ok) {
-        setHistoryError(result.message);
-        setHistorySource("mock");
-        return;
-      }
-      setHistorySource("live");
-      setBatches(mapJobsToBatches(result.jobs));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.churchId]);
+    if (liveEligible) return [];
+    return mockBatches;
+  }, [liveEligible, historyPoll.jobs, historyPoll.source, mockBatches]);
 
   const filteredBatches = useMemo(
     () =>
@@ -274,18 +274,34 @@ export function OcrDesktopPage() {
 
   useEffect(() => {
     if (screen !== "processing") return;
+    if (liveEligible && sessionJobIds.length > 0) {
+      if (sessionPoll.allTerminal) {
+        const t = window.setTimeout(() => setScreen("results"), 600);
+        return () => window.clearTimeout(t);
+      }
+      return;
+    }
     if (procStep >= STANDARD_STEPS.length) {
       const t = window.setTimeout(() => setScreen("results"), 600);
       return () => window.clearTimeout(t);
     }
     const t = window.setTimeout(() => setProcStep((s) => s + 1), 700);
     return () => window.clearTimeout(t);
-  }, [screen, procStep]);
+  }, [
+    screen,
+    procStep,
+    liveEligible,
+    sessionJobIds.length,
+    sessionPoll.allTerminal,
+  ]);
 
   const pendingDelete = batches.find((b) => b.id === pendingDeleteId) ?? null;
   const pendingSeed = batches.find((b) => b.id === pendingSeedId) ?? null;
-  const churchId = user?.churchId;
-  const liveHistory = historySource === "live" && authMode === "live";
+  const liveHistory = historySource === "live";
+  const historyEmpty =
+    liveHistory && !historyPoll.loading && historyPoll.jobs.length === 0;
+  const historyFilteredEmpty =
+    filteredBatches.length === 0 && batches.length > 0;
 
   const runRetry = (batch: Batch) => {
     if (!churchId || !batch.jobId) return;
@@ -298,7 +314,25 @@ export function OcrDesktopPage() {
         return;
       }
       setActionMessage(`Retry queued for “${batch.name}”.`);
-      void reloadLiveHistory(churchId);
+      void historyPoll.reload();
+    });
+  };
+
+  const runDownload = (batch: Batch) => {
+    if (!churchId || !batch.jobId) return;
+    setDownloadPendingId(batch.id);
+    setActionMessage(null);
+    void downloadOcrJobResults({
+      churchId,
+      jobId: batch.jobId,
+      filenameHint: `${batch.name.replace(/\s+/g, "-").toLowerCase()}.txt`,
+    }).then((result) => {
+      setDownloadPendingId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(`Downloaded “${result.filename}”.`);
     });
   };
 
@@ -314,13 +348,31 @@ export function OcrDesktopPage() {
         return;
       }
       setActionMessage(`Seeded “${batch.name}” into records.`);
-      void reloadLiveHistory(churchId);
+      void historyPoll.reload();
     });
   };
 
   const batchActions = (batch: Batch) => {
     const pending = actionPendingId === batch.id;
-    const retryEligible = liveHistory && !!batch.jobId && batch.status === "failed";
+    const downloading = downloadPendingId === batch.id;
+    const retryEligible =
+      liveHistory &&
+      !!batch.jobId &&
+      canRetryOcrJob({
+        status: batch.jobStatus ?? batch.status,
+        ...(batch.reviewStatus !== undefined
+          ? { review_status: batch.reviewStatus }
+          : {}),
+      });
+    const downloadEligible =
+      liveHistory &&
+      !!batch.jobId &&
+      canDownloadOcrJob({
+        status: batch.jobStatus ?? batch.status,
+        ...(batch.reviewStatus !== undefined
+          ? { review_status: batch.reviewStatus }
+          : {}),
+      });
     const seedEligible =
       liveHistory &&
       !!batch.jobId &&
@@ -352,6 +404,18 @@ export function OcrDesktopPage() {
             {pending ? "…" : "Retry"}
           </Button>
         ) : null}
+        {downloadEligible ? (
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            size="sm"
+            isDisabled={downloading}
+            onAction={() => runDownload(batch)}
+          >
+            <Download size={14} aria-hidden />
+            {downloading ? "…" : "Download"}
+          </Button>
+        ) : null}
         {seedEligible ? (
           <Button
             className="om-btn-ghost"
@@ -363,13 +427,15 @@ export function OcrDesktopPage() {
             Seed
           </Button>
         ) : null}
-        <IconButton
-          className="om-header-icon-btn"
-          variant="quiet"
-          accessibleLabel={`Delete ${batch.name}`}
-          icon={<Trash2 size={14} aria-hidden />}
-          onAction={() => setPendingDeleteId(batch.id)}
-        />
+        {!liveHistory ? (
+          <IconButton
+            className="om-header-icon-btn"
+            variant="quiet"
+            accessibleLabel={`Delete ${batch.name}`}
+            icon={<Trash2 size={14} aria-hidden />}
+            onAction={() => setPendingDeleteId(batch.id)}
+          />
+        ) : null}
       </Group>
     );
   };
@@ -401,13 +467,25 @@ export function OcrDesktopPage() {
 
       {screen === "history" && (
         <Stack gap="md">
+          {liveEligible ? (
+            <Stack gap={4}>
+              {OCR_LIVE_CUTOFF_NOTES.map((note) => (
+                <Text key={note} size="xs" c="dimmed">
+                  {note}
+                </Text>
+              ))}
+            </Stack>
+          ) : null}
           <Text size="sm" c="dimmed">
-            {historyLoading
+            {historyPoll.loading
               ? "Loading OCR jobs…"
               : historySource === "live"
-                ? "History from live OCR jobs API. Retry/seed use church-scoped job routes."
-                : "Mock history (set VITE_PORTAL_AUTH_MODE=live with church context for API jobs)."}
-            {historyError ? ` · ${historyError}` : ""}
+                ? historyPoll.shouldPoll
+                  ? "Live OCR jobs — refreshing while processing…"
+                  : "Live OCR jobs — Retry, Seed, and Download use church-scoped routes."
+                : historySource === "error"
+                  ? `Could not load OCR jobs (${historyPoll.error ?? "request failed"}).`
+                  : "Mock history (set VITE_PORTAL_AUTH_MODE=live with church context for API jobs)."}
           </Text>
           {actionMessage ? (
             <Text size="sm" role="status">
@@ -450,10 +528,31 @@ export function OcrDesktopPage() {
             </Group>
           </Group>
 
-          {filteredBatches.length === 0 ? (
+          {historyEmpty ? (
+            <Text size="sm" c="dimmed">
+              No OCR jobs yet. Start a batch upload or capture pages from OCR Mobile.
+            </Text>
+          ) : historyFilteredEmpty ? (
             <Text size="sm" c="dimmed">
               No batches match the current filters.
             </Text>
+          ) : null}
+
+          {liveHistory ? (
+            <Group gap="sm">
+              <Button
+                className="om-btn-ghost"
+                variant="secondary"
+                size="sm"
+                isDisabled={historyPoll.loading}
+                onAction={() => {
+                  void historyPoll.reload();
+                }}
+              >
+                <RefreshCw size={14} aria-hidden />
+                Refresh
+              </Button>
+            </Group>
           ) : null}
 
           {viewMode === "table" ? (
@@ -541,8 +640,8 @@ export function OcrDesktopPage() {
               if (!open) setPendingDeleteId(null);
             }}
             onConfirm={() => {
-              if (pendingDeleteId) {
-                setBatches((prev) => prev.filter((b) => b.id !== pendingDeleteId));
+              if (pendingDeleteId && !liveHistory) {
+                setMockBatches((prev) => prev.filter((b) => b.id !== pendingDeleteId));
               }
               setPendingDeleteId(null);
             }}
@@ -683,6 +782,10 @@ export function OcrDesktopPage() {
                             return;
                           }
                           setUploadedCount((n) => n + result.jobs.length);
+                          setSessionJobIds((prev) => [
+                            ...prev,
+                            ...result.jobs.map((job) => job.id),
+                          ]);
                           setUploadMessage(
                             `Uploaded ${String(result.jobs.length)} page job(s).`,
                           );
@@ -790,37 +893,86 @@ export function OcrDesktopPage() {
             </Title>
             <Text size="sm" c="dimmed">
               Batch: {batchName || "Untitled Batch"} · Mode: {mode}
+              {liveEligible && sessionJobIds.length > 0
+                ? sessionPoll.shouldPoll
+                  ? " · polling live job status"
+                  : " · live jobs"
+                : ""}
             </Text>
-            <Progress
-              value={Math.min(100, (procStep / STANDARD_STEPS.length) * 100)}
-              color="navy"
-              size="sm"
-              radius="xl"
-            />
-            <Stack gap="xs" role="list" aria-label="Processing steps">
-              {STANDARD_STEPS.map((label, idx) => {
-                const done = idx < procStep;
-                const active = idx === procStep;
-                return (
-                  <Group key={label} gap="sm" role="listitem">
-                    {done ? (
-                      <CheckCircle2 size={16} color="var(--mantine-color-teal-6)" aria-hidden />
-                    ) : active ? (
-                      <Loader2 size={16} className="om-spin" color="var(--mantine-color-gold-6)" aria-hidden />
-                    ) : (
-                      <Circle size={16} color="var(--mantine-color-dimmed)" aria-hidden />
-                    )}
-                    <Text
-                      size="sm"
-                      fw={active ? 500 : 400}
-                      {...(done || active ? {} : { c: "dimmed" as const })}
-                    >
-                      {label}
-                    </Text>
-                  </Group>
-                );
-              })}
-            </Stack>
+            {liveEligible && sessionJobIds.length > 0 ? (
+              <>
+                <Progress
+                  value={
+                    sessionPoll.jobs.length === 0
+                      ? 10
+                      : Math.round(
+                          (sessionPoll.jobs.filter(
+                            (job) =>
+                              mapOcrJobToWizardStatus(job) !== "processing",
+                          ).length /
+                            Math.max(sessionPoll.jobs.length, 1)) *
+                            100,
+                        )
+                  }
+                  color="navy"
+                  size="sm"
+                  radius="xl"
+                />
+                <Stack gap="xs" role="list" aria-label="Session OCR jobs">
+                  {sessionPoll.jobs.map((job) => {
+                    const wizard = mapOcrJobToWizardStatus(job);
+                    return (
+                      <Group key={job.id} gap="sm" role="listitem" wrap="nowrap">
+                        <Badge variant="light" color={wizard === "failed" ? "red" : "navy"}>
+                          {STATUS_LABEL[wizard as BatchStatus]}
+                        </Badge>
+                        <Text size="sm" lineClamp={1} style={{ flex: 1 }}>
+                          {job.original_filename ?? job.filename}
+                        </Text>
+                      </Group>
+                    );
+                  })}
+                </Stack>
+                {sessionPoll.jobs.length === 0 && !sessionPoll.loading ? (
+                  <Text size="sm" c="dimmed">
+                    Waiting for uploaded jobs to appear in the church queue…
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Progress
+                  value={Math.min(100, (procStep / STANDARD_STEPS.length) * 100)}
+                  color="navy"
+                  size="sm"
+                  radius="xl"
+                />
+                <Stack gap="xs" role="list" aria-label="Processing steps">
+                  {STANDARD_STEPS.map((label, idx) => {
+                    const done = idx < procStep;
+                    const active = idx === procStep;
+                    return (
+                      <Group key={label} gap="sm" role="listitem">
+                        {done ? (
+                          <CheckCircle2 size={16} color="var(--mantine-color-teal-6)" aria-hidden />
+                        ) : active ? (
+                          <Loader2 size={16} className="om-spin" color="var(--mantine-color-gold-6)" aria-hidden />
+                        ) : (
+                          <Circle size={16} color="var(--mantine-color-dimmed)" aria-hidden />
+                        )}
+                        <Text
+                          size="sm"
+                          fw={active ? 500 : 400}
+                          {...(done || active ? {} : { c: "dimmed" as const })}
+                        >
+                          {label}
+                        </Text>
+                      </Group>
+                    );
+                  })}
+                </Stack>
+              </>
+            )}
           </Stack>
         </Card>
       )}
