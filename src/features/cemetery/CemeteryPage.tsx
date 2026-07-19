@@ -53,6 +53,7 @@ export function CemeteryPage() {
 
   const [geometry, setGeometry] = useState<CemeteryRenderGeometry | null>(null);
   const [geometryNote, setGeometryNote] = useState<string | null>(null);
+  const [geometryError, setGeometryError] = useState<string | null>(null);
   const [geometryLoading, setGeometryLoading] = useState(false);
 
   const [detail, setDetail] = useState<CemeteryPlotDetail | null>(null);
@@ -107,10 +108,12 @@ export function CemeteryPage() {
       setGeometryLoading(false);
       if (!result.ok) {
         setGeometry(null);
-        setGeometryNote(result.message);
+        setGeometryError(result.message);
+        setGeometryNote(null);
         return;
       }
       setGeometry(result.geometry);
+      setGeometryError(null);
       setGeometryNote(
         result.source === "mock"
           ? "Preview geometry stub (not a live parish map)."
@@ -157,6 +160,17 @@ export function CemeteryPage() {
       ? null
       : (plots.find((p) => p.id === selectedPlotId) ?? null);
 
+  function selectPlot(plotId: string) {
+    setSelectedPlotId(plotId);
+    if (typeof document !== "undefined") {
+      requestAnimationFrame(() => {
+        document
+          .getElementById("cemetery-plot-detail")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
+
   function runSearch() {
     setSearchLoading(true);
     setSearchNote(null);
@@ -189,13 +203,34 @@ export function CemeteryPage() {
         description="Cemetery module is disabled for this church."
       >
         <Card padding="lg" maw={640}>
-          <Stack gap="sm">
-            <Text size="sm">
-              Feature flags default off (`cemetery.enabled`). Operators enable per church after
-              geometry and record mappings are validated.
-            </Text>
-            <Text size="sm" c="dimmed">
-              Flags: map={String(flags.mapEnabled)} · maintenance=
+          <Stack gap="md" align="center" ta="center">
+            <Box
+              aria-hidden
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 10,
+                background: "var(--mantine-color-default-hover)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--mantine-color-dimmed)",
+              }}
+            >
+              <MapPin size={24} />
+            </Box>
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Cemetery is not enabled
+              </Text>
+              <Text size="sm" c="dimmed">
+                Feature flags default off (`cemetery.enabled`). Operators turn on the module per
+                church after plot records and map geometry are validated. Map, search, and plot
+                detail stay hidden until then — this page does not invent tenant data.
+              </Text>
+            </Stack>
+            <Text size="xs" c="dimmed">
+              Flags (all default false): map={String(flags.mapEnabled)} · maintenance=
               {String(flags.maintenanceEnabled)} · reports=
               {String(flags.reportsEnabled)}
             </Text>
@@ -245,14 +280,17 @@ export function CemeteryPage() {
                   plots={plots}
                   geometry={geometry}
                   selectedPlotId={selectedPlotId}
-                  onSelectPlot={setSelectedPlotId}
+                  onSelectPlot={selectPlot}
                   loading={geometryLoading}
                   note={geometryNote}
+                  errorMessage={geometryError}
                 />
               </Box>
             ) : (
               <Text size="sm" c="dimmed">
-                Map disabled until `cemetery.mapEnabled` is on and geometry is validated.
+                Map stays off until `cemetery.mapEnabled` is true for this church and render
+                geometry is validated. Plots list, deceased search, and read-only plot detail below
+                still load when `cemetery.enabled` is on.
               </Text>
             )}
           </Stack>
@@ -302,7 +340,7 @@ export function CemeteryPage() {
                         key={hit.personId}
                         style={{ cursor: hit.plotId ? "pointer" : undefined }}
                         onClick={() => {
-                          if (hit.plotId) setSelectedPlotId(hit.plotId);
+                          if (hit.plotId) selectPlot(hit.plotId);
                         }}
                       >
                         <Table.Td>
@@ -498,12 +536,7 @@ export function CemeteryPage() {
                               : undefined,
                         }}
                         onClick={() => {
-                          setSelectedPlotId(plot.id);
-                          if (typeof document !== "undefined") {
-                            document
-                              .getElementById("cemetery-plot-detail")
-                              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }
+                          selectPlot(plot.id);
                         }}
                       >
                         <Table.Td>

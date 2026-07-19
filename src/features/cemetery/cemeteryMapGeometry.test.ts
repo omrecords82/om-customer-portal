@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clampMapZoom,
   computePlotViewBox,
+  MAP_ZOOM_DEFAULT,
+  MAP_ZOOM_MAX,
+  MAP_ZOOM_MIN,
   pathFromPoints,
   plotsWithMapCoords,
   plotStatusFill,
   summarizeRenderGeometry,
+  zoomedViewBox,
 } from "./cemeteryMapGeometry";
 
 describe("cemeteryMapGeometry", () => {
@@ -108,5 +113,20 @@ describe("cemeteryMapGeometry", () => {
   it("maps status fills", () => {
     expect(plotStatusFill("occupied")).toMatch(/^#/);
     expect(plotStatusFill("unknown")).toMatch(/^#/);
+  });
+
+  it("clamps map zoom to the read-only shell range", () => {
+    expect(clampMapZoom(0.1)).toBe(MAP_ZOOM_MIN);
+    expect(clampMapZoom(99)).toBe(MAP_ZOOM_MAX);
+    expect(clampMapZoom(Number.NaN)).toBe(MAP_ZOOM_DEFAULT);
+  });
+
+  it("shrinks viewBox around center when zooming in", () => {
+    const base = { x: 0, y: 0, w: 100, h: 100 };
+    const zoomed = zoomedViewBox(base, 2);
+    expect(zoomed.w).toBe(50);
+    expect(zoomed.h).toBe(50);
+    expect(zoomed.x).toBe(25);
+    expect(zoomed.y).toBe(25);
   });
 });

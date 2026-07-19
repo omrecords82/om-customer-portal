@@ -202,3 +202,38 @@ export function readPolyline(
   }
   return out;
 }
+
+export const MAP_ZOOM_MIN = 0.5;
+export const MAP_ZOOM_MAX = 3;
+export const MAP_ZOOM_STEP = 0.25;
+export const MAP_ZOOM_DEFAULT = 1;
+
+export const PLOT_STATUS_LEGEND: readonly {
+  readonly label: string;
+  readonly status: string;
+  readonly fill: string;
+}[] = [
+  { label: "Occupied", status: "occupied", fill: plotStatusFill("occupied") },
+  { label: "Reserved", status: "reserved", fill: plotStatusFill("reserved") },
+  { label: "Available", status: "available", fill: plotStatusFill("available") },
+];
+
+/** Clamp zoom for the read-only shell toolbar. */
+export function clampMapZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) return MAP_ZOOM_DEFAULT;
+  return Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, zoom));
+}
+
+/**
+ * Shrink the SVG viewBox around its center for button/wheel zoom.
+ * Pan uses native scroll on the map container (overflow auto).
+ */
+export function zoomedViewBox(base: SvgViewBox, zoom: number): SvgViewBox {
+  const z = clampMapZoom(zoom);
+  if (z === MAP_ZOOM_DEFAULT) return base;
+  const w = base.w / z;
+  const h = base.h / z;
+  const cx = base.x + base.w / 2;
+  const cy = base.y + base.h / 2;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+}
