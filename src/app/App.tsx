@@ -1,6 +1,8 @@
 import "@mantine/core/styles.css";
 import "@om/tokens/css";
 import "../styles/brand-bridge.css";
+import "@om/tokens/css/liturgical";
+import "@om/tokens/css/accessibility";
 import "@om/ui/css";
 import "../styles/portal.css";
 

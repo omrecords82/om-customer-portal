@@ -17,8 +17,11 @@ Defined in `src/app/App.tsx`:
 1. `@mantine/core/styles.css`
 2. `@om/tokens/css`
 3. `src/styles/brand-bridge.css` (`@layer om.brand` — OM navy/gold bridge)
-4. `@om/ui/css`
-5. Portal overrides (`../styles/portal.css`)
+4. `@om/tokens/css/liturgical` (`@layer om.liturgical` — calendar accent hooks; mostly reserved in `@om/tokens@0.1.0`)
+5. `@om/tokens/css/accessibility` (`@layer om.accessibility` — contrast/motion/focus token hooks + `forced-colors` focus vars)
+6. `@om/ui/css`
+7. Portal overrides (`../styles/portal.css`)
+8. Portal a11y utilities (`src/styles/a11y.css` via `main.tsx` — `@layer om.accessibility` skip link + unlayered `forced-colors` shell focus)
 
 `OmThemeSync` mirrors Mantine light/dark onto `document.documentElement.dataset.omTheme` so `@om/tokens` `[data-om-theme]` selectors resolve.
 
@@ -75,6 +78,17 @@ Portal CSS class overrides keep the previous navy / quiet chrome look on top of 
 Partial GAP-BRAND-TOKENS cutover (2026-07-19): published component/semantic tokens are overridden in `@layer om.brand` to OM gold focus/accent without adopting bootstrap red `--om-semantic-action-accent`. Navy/gold primitives and sidebar rgba surfaces remain Mantine-sourced bridge aliases until `@om/tokens` publishes brand-pack + navigation shell semantics.
 
 Inventory helper: `src/theme/brandTokens.ts` (`BRIDGED_OM_TOKEN_PATHS`, `DEFERRED_BRAND_CSS_VARS`).
+
+## Wave J liturgical + accessibility layers
+
+Wired (2026-07-19): `@om/tokens/css/liturgical` and `@om/tokens/css/accessibility` import after `brand-bridge.css` so `@layer` order stays `om.brand` → `om.liturgical` → `om.accessibility`. Package `@om/tokens@0.1.0` exports are mostly Phase 1B placeholders; active rules today:
+
+| Layer | Active in package | Portal usage |
+| --- | --- | --- |
+| `om.liturgical` | `[data-om-liturgical-color="red"]` sets header accent | No calendar surfaces yet — wiring only; liturgical calendar is POST-MVP (Wave G) |
+| `om.accessibility` | `[data-om-focus-visibility="enhanced"]`, `@media (forced-colors)` focus vars | `a11y.css` composes skip-link + shell `forced-colors` focus using `--om-accessibility-focus-enhanced-width` / `--om-semantic-focus-ring` |
+
+Deferred until tokens publish Phase 1B output: `[data-om-contrast]`, `[data-om-motion]`, `[data-om-text-scale]`, non-red liturgical colors, `prefers-contrast: more` root vars.
 
 ## Portal-local values not yet mappable
 

@@ -1,31 +1,42 @@
-/* Skip link — visible on keyboard focus */
-.om-skip-link {
-  position: absolute;
-  left: 12px;
-  top: 8px;
-  z-index: 4000;
-  padding: 8px 12px;
-  border-radius: 4px;
-  background: var(--om-brand-navy-7);
-  color: var(--mantine-color-white) !important;
-  font-size: 13px;
-  font-weight: 500;
-  text-decoration: none;
-  transform: translateY(-160%);
-  transition: transform 0.15s ease;
-}
+/* Portal a11y utilities — composes with @om/tokens/css/accessibility (@layer om.accessibility). */
 
-.om-skip-link:focus {
-  transform: translateY(0);
-  outline: 2px solid var(--om-semantic-focus-ring, var(--om-brand-gold-5));
-  outline-offset: 2px;
-}
+@layer om.accessibility {
+  /* Skip link — visible on keyboard focus */
+  .om-skip-link {
+    position: absolute;
+    left: 12px;
+    top: 8px;
+    z-index: 4000;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--om-brand-navy-7);
+    color: var(--mantine-color-white) !important;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transform: translateY(-160%);
+    transition: transform 0.15s ease;
+  }
 
-@media (prefers-reduced-motion: reduce) {
-  .om-skip-link,
-  .om-spin {
-    transition: none !important;
-    animation: none !important;
+  .om-skip-link:focus {
+    transform: translateY(0);
+    outline: var(--om-accessibility-focus-enhanced-width, 2px) solid
+      var(--om-semantic-focus-ring, var(--om-brand-gold-5));
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .om-skip-link,
+    .om-spin {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .om-skip-link:focus {
+      outline-width: var(--om-accessibility-focus-enhanced-width, 3px);
+    }
   }
 }
 
@@ -37,4 +48,32 @@
 
 .om-spin {
   animation: om-spin 0.9s linear infinite;
+}
+
+/* Unlayered so shell focus overrides in portal.css yield to system colors. */
+@media (forced-colors: active) {
+  .om-skip-link {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+
+  .om-skip-link:focus {
+    outline: var(--om-accessibility-focus-enhanced-width, 3px) solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .om-sidebar-link[data-focus-visible],
+  .om-header-icon-btn[data-focus-visible],
+  .om-user-btn[data-focus-visible],
+  .om-btn-primary[data-focus-visible],
+  .om-btn-ghost[data-focus-visible],
+  .om-menu-item[data-focused] {
+    outline: var(--om-accessibility-focus-enhanced-width, 3px) solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .om-sidebar-link.active {
+    border-left-color: Highlight;
+  }
 }

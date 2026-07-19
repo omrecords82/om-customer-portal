@@ -86,12 +86,12 @@ Permanent ownership model:
 | Layout, surfaces, spacing, typography chrome, responsive shell | **Mantine** (app) |
 | Direct `react-aria-components` | Only where `@om/ui` lacks capability (**allowlisted**, temporary waived gaps — see §2.2) |
 
-- [x] **Global CSS order** — Mantine → `@om/tokens/css` → `brand-bridge.css` → `@om/ui/css` → portal overrides (`src/app/App.tsx`).
+- [x] **Global CSS order** — Mantine → `@om/tokens/css` → `brand-bridge.css` → `@om/tokens/css/liturgical` → `@om/tokens/css/accessibility` → `@om/ui/css` → portal overrides → portal `a11y.css` (`src/app/App.tsx`, `src/main.tsx`).
 - [x] **Theme sync** — `OmThemeSync` mirrors Mantine scheme onto `document.documentElement.dataset.omTheme`.
 - [x] **ESLint prohibited stacks** — no MUI / Emotion / Radix / Tailwind / shadcn / Bootstrap / Chakra / Ant; RAC allowlisted only in documented shell files.
 - [x] **Temporary shell RAC adapters approved (operator 2026-07-19)** — sidebar router Link, Aria `RouterProvider`, account Menu may remain **application-owned**, narrowly scoped, documented, ESLint-allowlisted; **not** exported as Portal primitive APIs; **no** RAC types in public interfaces. Do **not** invent fake `@om/ui` wrappers solely to remove imports.
 - [x] **Theme bridge completeness (partial Wave J)** — `brand-bridge.css` maps published component/semantic tokens to OM gold focus/accent; navy/gold primitives + sidebar rgba surfaces remain Mantine-sourced bridge aliases until `@om/tokens` brand-pack ships (GAP-BRAND-TOKENS). Post-MVP full cutover still allowed (Wave K).
-- [ ] **Liturgical / accessibility token layers** — adopt `@om/tokens/css/liturgical` and `css/accessibility` when post-MVP calendar / a11y finish needs them (Wave J). **Does not block MVP cutover.**
+- [x] **Liturgical / accessibility token layers** — `@om/tokens/css/liturgical` + `css/accessibility` wired after brand bridge (Wave J remainder, 2026-07-19). Package rules are mostly Phase 1B placeholders; portal `a11y.css` adds skip-link + shell `forced-colors` focus. Liturgical calendar attribute wiring remains POST-MVP with Wave G.
 
 ### 0.3 Governance
 
@@ -536,9 +536,9 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 **Post-MVP note:** Complete brand-token cleanup, `@om/icons` unification, and liturgical token/calendar surfaces are **explicitly allowed post-MVP** and must not block Wave K if MVP pathways otherwise pass. Liturgical calendar work here aligns with Wave G **POST-MVP** scheduling.
 
 - [x] Consume brand/sidebar tokens once published (GAP-BRAND-TOKENS) — **partial bridge shipped** (`brand-bridge.css`); navy/gold primitives + sidebar rgba surfaces remain deferred until brand-pack publication; full cleanup post-MVP OK
-- [ ] Liturgical token layer for calendar surfaces — **POST-MVP** with liturgical calendar
+- [ ] Liturgical token layer for calendar surfaces — **POST-MVP** with liturgical calendar (`data-om-liturgical-color` wiring imported; calendar UI not built)
 - [ ] `@om/icons` adoption after audit (do not mix Tabler/MUI/lucide casually) — **post-MVP allowed**
-- [ ] forced-colors / accessibility CSS wired
+- [x] forced-colors / accessibility CSS wired — `@om/tokens/css/accessibility` + portal `a11y.css` `forced-colors` shell focus (2026-07-19)
 - [ ] Church 46: **tenant exception remains app-owned** if/when that shell is ported — document forever-app-owned assets
 
 **Dependencies:** hub/chrome waves stable.  

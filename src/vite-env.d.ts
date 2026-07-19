@@ -18,4 +18,6 @@ type ImportMeta = {
 };
 
 declare module "@om/tokens/css";
+declare module "@om/tokens/css/liturgical";
+declare module "@om/tokens/css/accessibility";
 declare module "@om/ui/css";
