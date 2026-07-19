@@ -468,15 +468,15 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 #### Wave H entry gates (all must pass before any editor work)
 
-- [ ] Live authentication and church context work for pilot users
+- [ ] Live authentication and church context work for pilot users — capability shipped (Wave B); **per-tenant enablement evidence still open** (`docs/AUTH-PILOT-CHECKLIST.md`)
 - [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`. **Editors still blocked.**
 - [x] Wave E records deep-link compatibility is implemented and tested
-- [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts`
-- [ ] Read / create / update / delete permission rules are documented
-- [ ] Tenant-isolation tests exist
-- [ ] Clergy, location, and related-record selection behavior is defined
-- [ ] Dual-run or rollback behavior against legacy editors is defined
-- [ ] Audit-logging requirements are defined
+- [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts` — **packages repo gap**; see `docs/WAVE-H-RECORDS-GATES.md` §4
+- [x] Read / create / update / delete permission rules are documented — evidence: `docs/WAVE-H-RECORDS-GATES.md` §1 (OM roles + portal list enforcement + Wave H editor targets)
+- [x] Tenant-isolation tests exist — evidence: `recordsApi.test.ts` (`buildRecordsListUrl`, live fetch guardrails, single `church_id` across list endpoints); portal uses session `user.churchId` only (not URL `?churchId=`) — `docs/WAVE-H-RECORDS-GATES.md` §2
+- [x] Clergy, location, and related-record selection behavior is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §5 (`GET /api/lookup/clergy`, `/api/lookup/locations`, church-scoped search)
+- [x] Dual-run or rollback behavior against legacy editors is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §6 (per-type feature flags, legacy `/portal` fallback, deploy rollback)
+- [x] Audit-logging requirements are defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §3 (`writeSacramentHistory`, `/:id/history`; no fake client audit; list reads not audited server-side today)
 
 **When authorized, implement in order — do not build all three simultaneously:**
 

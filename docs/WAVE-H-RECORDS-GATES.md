@@ -1,0 +1,143 @@
+# Wave H — Records entry gates (documentation)
+
+**Work ref:** `PORTAL-WAVE-H-EDITORS`  
+**Policy:** Sacramental **editors are not authorized** until all entry gates pass. This document closes the documentation and portal-side test gates for permissions, tenant isolation, audit expectations, editor field-selection behavior, and dual-run/rollback.
+
+**Related code:** `src/features/records/recordsApi.ts`, `RecordsPage.tsx`, `recordsApi.test.ts`  
+**OM backend parity:** `om/agent-cursor/server/src/api/{baptism,marriage,funeral}.js`, `server/src/utils/roles.js`, `server/src/utils/writeSacramentHistory.ts`, `server/src/routes/lookup.js`
+
+---
+
+## 1. Parish record permission model
+
+OM role hierarchy (canonical, highest first): `super_admin` → `admin` → `church_admin` → `priest` → `deacon` → `editor` → `viewer` → `guest` (`server/src/utils/roles.js`).
+
+| Action | OM server today | Customer Portal today | Wave H editor target |
+|---|---|---|---|
+| **Read** list / single record | `requireAuth` on `GET /api/*-records` and `GET /api/*-records/:id`; scoped by `church_id` query and/or session `church_id` + per-church DB | Live list when `AUTH_MODE=live` + session `user.churchId`; read-only UI | Same read path; detail drawer uses `GET /api/*-records/:id?church_id=` |
+| **Create** | `POST /api/*-records` — `requireAuth`; field validation in route handlers | **Not exposed** (editors blocked) | `canManageRecords` (deacon+) before showing create; POST body includes session `church_id` |
+| **Update** | `PUT /api/*-records/:id` — `requireAuth`; writes sacrament history on change | **Not exposed** | `canManageRecords` (deacon+) for edit affordances |
+| **Delete** | `DELETE /api/*-records/:id` — `requireAuth`; history event on delete | **Not exposed** | `canManageRecords` (deacon+) + destructive confirm (`@om/ui` AlertDialog) |
+| **Status / verification** | `PATCH /api/*-records/:id/status` — clergy/admin workflows | **Not exposed** | Priest+ or church_admin per legacy parity (confirm in editor QA) |
+| **Export / import** | Separate admin/import routes | Out of Wave H scope | Document when product requests |
+
+**Portal enforcement (list phase — shipped):**
+
+- `RecordsPage` passes **`user.churchId` from `/api/me` (session)** into `fetchSacramentalRecordsList`. It does **not** use `?churchId=` from the URL for API calls.
+- `?churchId=` on `/records` is preserved for **legacy deep-link compatibility** only (`recordsDeepLink.ts`).
+- Live list requires `authMode === "live"` and `user.churchId > 0`; otherwise honest mock/empty states.
+- Nav/route access follows Wave B `RequireAuth` when `VITE_PORTAL_REQUIRE_AUTH=true`; role-gated nav items remain TBD with product.
+
+**Known OM gap (document, do not paper over):** sacrament list/create routes use `requireAuth` but not `requireRole` / `canManageRecords` on the server today. Wave H must add **client-side** role gates before exposing editors; server-side role enforcement is a recommended follow-up in OM, not invented in the portal.
+
+---
+
+## 2. Tenant isolation — `church_id` scoping
+
+### Portal client contract
+
+1. **Session church is authoritative.** All live records list requests set query param `church_id=<session churchId>` via `buildRecordsListUrl` in `recordsApi.ts`.
+2. **URL `?churchId=` is never forwarded** to list APIs. A bookmark with another parish’s id cannot pivot the authenticated user’s data scope in the portal.
+3. **Missing church context fails closed in live mode:** `fetchSacramentalRecordsList` returns `{ ok: false, status: 400, message: "Church context required…" }` when `churchId` is null or ≤ 0.
+4. **Query shape:** `church_id`, `page`, `limit`, `search`, `sortField=id`, `sortDirection=desc` on:
+   - `GET /api/baptism-records`
+   - `GET /api/marriage-records`
+   - `GET /api/funeral-records`
+5. **Combined “all types” view** merges the three endpoints with the **same** `church_id`; per-type filter required for full server pagination.
+
+### OM server behavior (reference)
+
+- Resolves tenant DB from `church_id` (query, else session).
+- List queries add `WHERE church_id = ?` when `church_id` is provided.
+- Single-record fetch adds `AND church_id = ?` when scoped.
+- OCR and cemetery routes use `validateChurchAccess` in some paths; sacrament list routes rely on auth + `church_id` filtering — portal must not send cross-tenant ids.
+
+### Automated evidence
+
+Vitest: `src/features/records/recordsApi.test.ts` — section **“tenant isolation (list API)”** proves URL construction and live fetch guardrails.
+
+---
+
+## 3. Audit logging requirements
+
+**No client-side audit backend in the portal.** Do not POST synthetic audit events from the browser.
+
+### OM server (existing)
+
+| Event | Mechanism |
+|---|---|
+| Create / update / delete / import / OCR / merge / restore on sacrament rows | `writeSacramentHistory` → `{baptism,marriage,funeral}_history` tables (`writeSacramentHistory.ts`) |
+| Read history for one record | `GET /api/{type}-records/:id/history?church_id=` → `readSacramentHistory` |
+| List / search reads | **No** per-row audit trail today — acceptable for list gate; do not add fake logging |
+| Invite-user session activity | `activity_log` insert on authenticated requests (auth middleware) |
+
+### Wave H editor expectations
+
+- Every successful **mutating** editor action must go through existing OM REST endpoints so `writeSacramentHistory` runs with `source: 'ui'` (or `'api'` if proxied).
+- Editor UI should surface **record history** via `GET /api/*-records/:id/history` when product adds a history panel (optional Wave H stretch; not required for list gate).
+- Portal error logging: production builds rely on OM/server logs for failed API calls; no new portal audit store.
+
+---
+
+## 4. `@om/contracts` schema gap
+
+| Item | Status |
+|---|---|
+| Package pin | `@om/contracts` → `@omrecords82/contracts@0.1.0` (`package.json`) |
+| Canonical baptism / marriage / funeral **editor** schemas | **Not in 0.1.0** — requires `@omrecords82/contracts` repo release |
+| Portal list model | App-owned `SacramentalRecord` in `recordsData.ts` + row mappers in `recordsApi.ts` (intentional until contract ships) |
+
+**Gate status:** remains **open** until packages repo publishes sacramental schemas. Do **not** block list/permission/tenant docs on this; Wave H editors **must not** start without the contract or an explicit operator waiver.
+
+---
+
+## 5. Clergy, location, and related-record selection (Wave H editors)
+
+When editors are authorized, reuse OM lookup APIs with **session `church_id`** (same rule as list):
+
+| Field / need | OM API | Portal rule |
+|---|---|---|
+| Clergy combobox | `GET /api/lookup/clergy?church_id=&record_type=&search=` | Prefer `source: 'canonical'` entities; fallback DISTINCT from sacrament tables |
+| Locations (burial, place) | `GET /api/lookup/locations?church_id=&types=&search=` | Prefer canonical location entities; fallback funeral `burial_location` values |
+| Related record pickers (e.g. certificate, marriage link) | Type-specific list/search endpoints with same `church_id` | Search within tenant only; no cross-church record ids |
+| Autocomplete on typed fields | `GET /api/{type}-records/autocomplete?church_id=&field=` (legacy) | Optional; church-scoped query param required |
+
+Free-text entry remains allowed where legacy editors allow it; canonical entities reduce duplication. Portal must not cache another tenant’s lookup results under a shared key.
+
+---
+
+## 6. Dual-run and rollback (editors vs legacy)
+
+### Dual-run (when Wave H editors ship)
+
+1. **Feature flag** (env or OM church feature — TBD with operator): e.g. `VITE_PORTAL_RECORDS_EDITOR=baptism|marriage|funeral|off` per type, default `off`.
+2. **Legacy fallback:** `/portal/records/*` legacy SPA remains source of truth until flag on for pilot tenant.
+3. **Parity checks:** create → list appears → edit → history entry → delete (where allowed) on same `church_id`.
+4. **Order:** Baptism editor first; marriage/funeral reuse pattern — do not enable all three flags at once.
+
+### Rollback
+
+1. Set editor flag(s) to `off` (or remove env).
+2. `pnpm deploy:static` for Customer Portal if FE changed.
+3. Confirm legacy `/portal` editors still serve parish traffic (Wave K cutover is separate).
+4. No database rollback from portal — sacrament history is append-only on OM side.
+
+Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
+
+---
+
+## 7. Gate checklist mapping
+
+| Wave H entry gate | Status after this doc |
+|---|---|
+| Live authentication and church context for pilot users | **Open** — capability shipped; per-tenant enablement evidence still required (`AUTH-PILOT-CHECKLIST.md`) |
+| Real records-list APIs in portal | **Closed** (prior commit) |
+| Wave E deep-link compatibility | **Closed** (prior) |
+| Canonical schemas in `@om/contracts` | **Open** — packages repo |
+| Read/create/update/delete permission rules documented | **Closed** — §1 |
+| Tenant-isolation tests exist | **Closed** — `recordsApi.test.ts` |
+| Clergy / location / related-record selection defined | **Closed** — §5 |
+| Dual-run or rollback defined | **Closed** — §6 |
+| Audit-logging requirements defined | **Closed** — §3 |
+
+**Editors remain blocked** until operator re-authorizes Wave H after any remaining open gates (live pilot evidence + contracts).

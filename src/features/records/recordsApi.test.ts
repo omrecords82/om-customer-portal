@@ -11,6 +11,7 @@ vi.mock("../../auth/config", () => ({
 
 import { apiFetch } from "../../auth/apiFetch";
 import {
+  buildRecordsListUrl,
   fetchSacramentalRecordsList,
   mapRecordStatus,
   mapRowToSacramentalRecord,
@@ -190,5 +191,106 @@ describe("fetchSacramentalRecordsList (live)", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.message).toMatch(/Church context/i);
+    expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-positive churchId without calling API", async () => {
+    for (const churchId of [0, -3]) {
+      mockedApiFetch.mockReset();
+      const result = await fetchSacramentalRecordsList({
+        churchId,
+        typeFilter: "marriage",
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.status).toBe(400);
+      expect(mockedApiFetch).not.toHaveBeenCalled();
+    }
+  });
+
+  it("scopes marriage and funeral list URLs to the same church_id", async () => {
+    mockedApiFetch.mockResolvedValue(
+      jsonResponse({ records: [], totalRecords: 0, currentPage: 1, totalPages: 1 }),
+    );
+    await fetchSacramentalRecordsList({
+      churchId: 12,
+      typeFilter: "marriage",
+      page: 2,
+      limit: 50,
+    });
+    const marriageUrl = String(mockedApiFetch.mock.calls[0]?.[0]);
+    expect(marriageUrl).toContain("/api/marriage-records?");
+    expect(marriageUrl).toContain("church_id=12");
+    expect(marriageUrl).not.toContain("churchId=");
+
+    mockedApiFetch.mockReset();
+    mockedApiFetch.mockResolvedValue(
+      jsonResponse({ records: [], totalRecords: 0, currentPage: 1, totalPages: 1 }),
+    );
+    await fetchSacramentalRecordsList({
+      churchId: 12,
+      typeFilter: "funeral",
+    });
+    const funeralUrl = String(mockedApiFetch.mock.calls[0]?.[0]);
+    expect(funeralUrl).toContain("/api/funeral-records?");
+    expect(funeralUrl).toContain("church_id=12");
+  });
+
+  it("uses one church_id for all three endpoints in combined view", async () => {
+    mockedApiFetch.mockResolvedValue(
+      jsonResponse({ records: [], totalRecords: 0, currentPage: 1, totalPages: 1 }),
+    );
+    await fetchSacramentalRecordsList({
+      churchId: 99,
+      typeFilter: "all",
+    });
+    expect(mockedApiFetch).toHaveBeenCalledTimes(3);
+    for (const call of mockedApiFetch.mock.calls) {
+      const url = String(call[0]);
+      expect(url).toContain("church_id=99");
+      expect(url).not.toMatch(/church_id=0(?:&|$)/);
+      expect(url).not.toContain("tenant_id=");
+      expect(url).not.toContain("churchId=");
+    }
+  });
+});
+
+describe("buildRecordsListUrl (tenant isolation)", () => {
+  it("always includes church_id and omits cross-tenant override params", () => {
+    const url = buildRecordsListUrl("baptism", {
+      churchId: 7,
+      page: 3,
+      limit: 25,
+      search: "Smith",
+    });
+    expect(url).toBe(
+      "/api/baptism-records?church_id=7&page=3&limit=25&sortField=id&sortDirection=desc&search=Smith",
+    );
+    expect(url).not.toContain("churchId=");
+    expect(url).not.toContain("tenant");
+  });
+
+  it("returns null for chrismation (no list API)", () => {
+    expect(
+      buildRecordsListUrl("chrismation", {
+        churchId: 7,
+        page: 1,
+        limit: 25,
+        search: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not embed arbitrary church ids from deep links — caller must pass session church", () => {
+    const sessionChurch = 5;
+    const deepLinkChurch = 999;
+    const url = buildRecordsListUrl("baptism", {
+      churchId: sessionChurch,
+      page: 1,
+      limit: 25,
+      search: "",
+    });
+    expect(url).toContain("church_id=5");
+    expect(url).not.toContain(String(deepLinkChurch));
   });
 });

@@ -197,7 +197,8 @@ function sortRecordsByDateDesc(
   });
 }
 
-function buildRecordsListUrl(
+/** Build OM list URL — always includes session-scoped `church_id` (exported for tenant-isolation tests). */
+export function buildRecordsListUrl(
   type: RecordType,
   opts: {
     readonly churchId: number;
