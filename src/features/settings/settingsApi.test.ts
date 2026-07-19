@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   canEditChurchSettings,
+  canUnlockParishUsers,
+  canViewParishUsers,
   churchSettingsToParishProfile,
+  churchUserRowToParishUser,
+  churchUserStatus,
   extractApiMessage,
   extractChurchSettings,
   formatChurchLocation,
+  formatParishUserRole,
   notificationRowsToPortalPrefs,
+  parseChurchUsersResponse,
   parishLocationToApiFields,
   parishProfileToChurchPayload,
   parseUserProfile,
@@ -151,5 +157,74 @@ describe("settingsApi helpers", () => {
   it("checks church editor roles", () => {
     expect(canEditChurchSettings("church_admin")).toBe(true);
     expect(canEditChurchSettings("editor")).toBe(false);
+  });
+
+  it("checks parish user admin roles", () => {
+    expect(canViewParishUsers("priest")).toBe(true);
+    expect(canViewParishUsers("manager")).toBe(true);
+    expect(canViewParishUsers("editor")).toBe(false);
+    expect(canUnlockParishUsers("church_admin")).toBe(true);
+  });
+
+  it("formats parish user roles from church or system role", () => {
+    expect(formatParishUserRole("church_admin", "user")).toBe("Church Admin");
+    expect(formatParishUserRole("", "priest")).toBe("Priest");
+  });
+
+  it("maps church user API rows to portal parish users", () => {
+    expect(
+      churchUserRowToParishUser({
+        id: 42,
+        email: "editor@example.com",
+        first_name: "Elena",
+        last_name: "Records",
+        church_role: "editor",
+        system_role: "user",
+        is_active: 1,
+        is_locked: 0,
+      }),
+    ).toMatchObject({
+      id: "42",
+      name: "Elena Records",
+      email: "editor@example.com",
+      role: "Editor",
+      status: "active",
+      isLocked: false,
+    });
+
+    expect(
+      churchUserStatus({
+        id: 1,
+        email: "x@y.com",
+        first_name: "",
+        last_name: "",
+        church_role: "",
+        system_role: "",
+        is_active: 0,
+        is_locked: 1,
+      }),
+    ).toBe("pending");
+  });
+
+  it("parses church users list response wrappers", () => {
+    const users = parseChurchUsersResponse({
+      success: true,
+      data: {
+        users: [
+          {
+            id: 1,
+            email: "a@b.com",
+            first_name: "Ann",
+            last_name: "Admin",
+            church_role: "church_admin",
+            system_role: "user",
+            is_active: 1,
+            is_locked: 0,
+          },
+        ],
+      },
+    });
+    expect(users).toHaveLength(1);
+    expect(users[0]?.name).toBe("Ann Admin");
   });
 });

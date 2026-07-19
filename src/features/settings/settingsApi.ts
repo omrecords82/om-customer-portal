@@ -4,8 +4,10 @@ import type {
   NotificationPrefs,
   OcrPrefs,
   ParishProfile,
+  ParishUser,
+  ParishUserStatus,
 } from "./settingsData";
-import { DEFAULT_PARISH } from "./settingsData";
+import { DEFAULT_PARISH, MOCK_PARISH_USERS } from "./settingsData";
 
 /**
  * Wave C settings live client.
@@ -74,6 +76,15 @@ const CHURCH_EDITOR_ROLES = new Set([
   "admin",
   "church_admin",
   "priest",
+]);
+
+/** Matches OM `church-users` parish staff scope (list + unlock). */
+const PARISH_USER_ADMIN_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "church_admin",
+  "priest",
+  "manager",
 ]);
 
 function asString(value: unknown, fallback = ""): string {
@@ -276,6 +287,211 @@ export function portalPrefsToNotificationUpdates(
 export function canEditChurchSettings(role: string | undefined): boolean {
   if (!role) return false;
   return CHURCH_EDITOR_ROLES.has(role);
+}
+
+export function canViewParishUsers(role: string | undefined): boolean {
+  if (!role) return false;
+  return PARISH_USER_ADMIN_ROLES.has(role);
+}
+
+export function canUnlockParishUsers(role: string | undefined): boolean {
+  return canViewParishUsers(role);
+}
+
+export type ChurchUserApiRow = {
+  readonly id: unknown;
+  readonly email: unknown;
+  readonly first_name: unknown;
+  readonly last_name: unknown;
+  readonly system_role: unknown;
+  readonly church_role: unknown;
+  readonly is_active: unknown;
+  readonly is_locked: unknown;
+};
+
+export function formatParishUserRole(
+  churchRole: unknown,
+  systemRole: unknown,
+): string {
+  const raw = asString(churchRole) || asString(systemRole);
+  if (!raw) return "User";
+  return raw
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function churchUserStatus(row: ChurchUserApiRow): ParishUserStatus {
+  const locked = row.is_locked === 1 || row.is_locked === true;
+  const active = row.is_active === 1 || row.is_active === true;
+  if (locked) return "pending";
+  if (!active) return "disabled";
+  return "active";
+}
+
+export function churchUserRowToParishUser(row: ChurchUserApiRow): ParishUser {
+  const first = asString(row.first_name);
+  const last = asString(row.last_name);
+  const composed = [first, last].filter(Boolean).join(" ");
+  const email = asString(row.email);
+  const locked = row.is_locked === 1 || row.is_locked === true;
+
+  return {
+    id: String(row.id),
+    name: composed || email || "Unknown user",
+    email,
+    role: formatParishUserRole(row.church_role, row.system_role),
+    status: churchUserStatus(row),
+    isLocked: locked,
+  };
+}
+
+export function parseChurchUsersResponse(payload: unknown): ParishUser[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  if (root.success === false) return [];
+
+  const data = root.data;
+  if (data && typeof data === "object") {
+    const users = (data as Record<string, unknown>).users;
+    if (Array.isArray(users)) {
+      return users.map((row) => churchUserRowToParishUser(row as ChurchUserApiRow));
+    }
+  }
+
+  const direct = root.users;
+  if (Array.isArray(direct)) {
+    return direct.map((row) => churchUserRowToParishUser(row as ChurchUserApiRow));
+  }
+
+  return [];
+}
+
+export type FetchParishUsersResult =
+  | {
+      readonly ok: true;
+      readonly source: "preview" | "live";
+      readonly users: readonly ParishUser[];
+      readonly canUnlock: boolean;
+    }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+export type UnlockParishUserResult =
+  | { readonly ok: true; readonly source: "preview" | "live" }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+/** GET /api/admin/church-users/:churchId — parish staff scoped list. */
+export async function fetchParishUsers(
+  churchId: number | null | undefined,
+  role: string | undefined,
+): Promise<FetchParishUsersResult> {
+  const canUnlock = canUnlockParishUsers(role);
+
+  if (authMode !== "live") {
+    return {
+      ok: true,
+      source: "preview",
+      users: MOCK_PARISH_USERS,
+      canUnlock: true,
+    };
+  }
+
+  if (!churchId) {
+    return {
+      ok: false,
+      message: "No church context on your session — parish users cannot load.",
+      status: 400,
+    };
+  }
+
+  if (!canViewParishUsers(role)) {
+    return {
+      ok: false,
+      message:
+        "Your role cannot view the parish user directory. Contact a church administrator.",
+      status: 403,
+    };
+  }
+
+  try {
+    const res = await apiFetch(`/api/admin/church-users/${String(churchId)}`, {
+      method: "GET",
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(
+          payload,
+          `Parish users unavailable (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+    return {
+      ok: true,
+      source: "live",
+      users: parseChurchUsersResponse(payload),
+      canUnlock,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error loading parish users.",
+      status: 0,
+    };
+  }
+}
+
+/** POST /api/admin/church-users/:churchId/:userId/unlock — activate pending accounts. */
+export async function unlockParishUser(
+  churchId: number | null | undefined,
+  userId: string,
+  role: string | undefined,
+): Promise<UnlockParishUserResult> {
+  if (authMode !== "live") {
+    return { ok: true, source: "preview" };
+  }
+
+  if (!churchId) {
+    return {
+      ok: false,
+      message: "No church context on your session.",
+      status: 400,
+    };
+  }
+
+  if (!canUnlockParishUsers(role)) {
+    return {
+      ok: false,
+      message: "Your role cannot activate parish users.",
+      status: 403,
+    };
+  }
+
+  try {
+    const res = await apiFetch(
+      `/api/admin/church-users/${String(churchId)}/${userId}/unlock`,
+      { method: "POST" },
+    );
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(
+          payload,
+          `Could not activate user (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+    return { ok: true, source: "live" };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error activating user.",
+      status: 0,
+    };
+  }
 }
 
 function mockProfileFromDisplayName(displayName: string, email: string): UserProfileSlice {

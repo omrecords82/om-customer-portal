@@ -8,12 +8,16 @@ export type ParishProfile = {
   readonly website: string;
 };
 
+export type ParishUserStatus = "active" | "invited" | "disabled" | "pending";
+
 export type ParishUser = {
   readonly id: string;
   readonly name: string;
   readonly email: string;
   readonly role: string;
-  readonly status: "active" | "invited" | "disabled";
+  readonly status: ParishUserStatus;
+  /** True when OM marks the account locked pending first activation. */
+  readonly isLocked?: boolean;
 };
 
 export type NotificationPrefs = {
