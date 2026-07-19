@@ -335,7 +335,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
 - [x] Camera / file picker / permission-denied / offline-ish empty states — mock connect modes present
 - [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
-- [x] Wire **live** OCR job history + upload + **retry/seed** when `AUTH_MODE=live` + church context (`ocrApi.ts`: `fetchChurchOcrJobs`, `uploadOcrJobPages`, `retryChurchOcrJob`, `seedChurchOcrJob`); desktop history actions wired
+- [x] Wire **live** OCR job history + upload + **retry/seed** when `AUTH_MODE=live` + church context (`ocrApi.ts`: `fetchChurchOcrJobs`, `uploadOcrJobPages`, `retryChurchOcrJob`, `seedChurchOcrJob`); desktop history + mobile OCR-phase Retry/Seed wired (shared client helpers)
 - [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)

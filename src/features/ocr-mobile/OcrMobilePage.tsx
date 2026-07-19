@@ -9,6 +9,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
 import { IconButton } from "@om/ui/icon-button";
 import {
@@ -20,8 +21,19 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
+import { useAuth } from "../../auth/AuthProvider";
+import { authMode } from "../../auth/config";
+import {
+  canRetryOcrJob,
+  canSeedOcrJob,
+  fetchChurchOcrJobs,
+  mapOcrJobToWizardStatus,
+  retryChurchOcrJob,
+  seedChurchOcrJob,
+  type OcrJobDto,
+} from "../ocr-desktop/ocrApi";
 
 type Phase = 1 | 2 | 3 | 4;
 type StepStatus = "done" | "active" | "pending";
@@ -126,6 +138,23 @@ const INITIAL_PAGES: PageItem[] = Array.from({ length: 12 }, (_, i) => {
   };
 });
 
+const MOCK_OCR_STEPS = [
+  { label: "Upload complete", done: true },
+  { label: "Creating OCR jobs", done: true },
+  { label: "OCR processing", done: false },
+  { label: "Ready for Review", done: false },
+] as const;
+
+const WIZARD_STATUS_LABEL: Record<
+  ReturnType<typeof mapOcrJobToWizardStatus>,
+  string
+> = {
+  processing: "Processing",
+  "ready-for-review": "Ready for review",
+  completed: "Completed",
+  failed: "Failed",
+};
+
 function PhaseRail({ phase }: { phase: Phase }) {
   const steps = ALL_STEPS[phase];
   return (
@@ -160,18 +189,80 @@ type ConnectMode = "scan" | "permission" | "code" | "success";
 /**
  * Productized OM OCR Mobile blueprint (Mantine + @om/ui).
  * Source UX: /blueprints/om-ocr-mobile — Connect → Capture → Review → OCR
+ * Live retry/seed reuses church-scoped helpers from `ocr-desktop/ocrApi`.
  */
 export function OcrMobilePage() {
+  const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>(1);
   const [connectMode, setConnectMode] = useState<ConnectMode>("scan");
   const [pages, setPages] = useState<PageItem[]>(() =>
     INITIAL_PAGES.map((p) => ({ ...p })),
   );
   const [selected, setSelected] = useState(1);
+  const [jobs, setJobs] = useState<readonly OcrJobDto[]>([]);
+  const [jobsSource, setJobsSource] = useState<"mock" | "live">("mock");
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [actionPendingId, setActionPendingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [pendingSeedId, setPendingSeedId] = useState<string | null>(null);
+
+  const churchId = user?.churchId;
+  const liveEligible =
+    authMode === "live" && churchId != null && churchId > 0;
+  const liveJobs = jobsSource === "live" && liveEligible;
+
   const warningCount = useMemo(
     () => pages.filter((p) => p.quality !== null).length,
     [pages],
   );
+  const failedUploadCount = useMemo(
+    () => pages.filter((p) => p.upload === "failed").length,
+    [pages],
+  );
+  const pendingSeed = jobs.find((j) => j.id === pendingSeedId) ?? null;
+
+  const reloadLiveJobs = useCallback((id: number) => {
+    setJobsLoading(true);
+    setJobsError(null);
+    return fetchChurchOcrJobs(id, 20).then((result) => {
+      setJobsLoading(false);
+      if (!result.ok) {
+        setJobsError(result.message);
+        setJobsSource("mock");
+        setJobs([]);
+        return;
+      }
+      setJobsSource("live");
+      setJobs(result.jobs);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (phase !== 4 || authMode !== "live" || churchId == null || churchId <= 0) {
+      return;
+    }
+    const scopedChurchId = churchId;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external OCR jobs fetch on OCR phase
+    setJobsLoading(true);
+    setJobsError(null);
+    void fetchChurchOcrJobs(scopedChurchId, 20).then((result) => {
+      if (cancelled) return;
+      setJobsLoading(false);
+      if (!result.ok) {
+        setJobsError(result.message);
+        setJobsSource("mock");
+        setJobs([]);
+        return;
+      }
+      setJobsSource("live");
+      setJobs(result.jobs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, churchId]);
 
   function goCapture() {
     setPhase(2);
@@ -189,6 +280,56 @@ export function OcrMobilePage() {
       },
     ]);
   }
+
+  function retryFailedPageUploads() {
+    setPages((prev) =>
+      prev.map((p) =>
+        p.upload === "failed" ? { ...p, upload: "uploading" as const } : p,
+      ),
+    );
+    window.setTimeout(() => {
+      setPages((prev) =>
+        prev.map((p) =>
+          p.upload === "uploading" ? { ...p, upload: "uploaded" as const } : p,
+        ),
+      );
+    }, 700);
+  }
+
+  const runRetry = (job: OcrJobDto) => {
+    if (!churchId) return;
+    setActionPendingId(job.id);
+    setActionMessage(null);
+    void retryChurchOcrJob(churchId, job.id).then((result) => {
+      setActionPendingId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(
+        `Retry queued for “${job.original_filename ?? job.filename}”.`,
+      );
+      void reloadLiveJobs(churchId);
+    });
+  };
+
+  const runSeed = (job: OcrJobDto) => {
+    if (!churchId) return;
+    setActionPendingId(job.id);
+    setActionMessage(null);
+    void seedChurchOcrJob(churchId, job.id).then((result) => {
+      setActionPendingId(null);
+      setPendingSeedId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(
+        `Seeded “${job.original_filename ?? job.filename}” into records.`,
+      );
+      void reloadLiveJobs(churchId);
+    });
+  };
 
   return (
     <PageLayout
@@ -290,6 +431,11 @@ export function OcrMobilePage() {
               <Text size="sm" c="dimmed">
                 Photograph registry pages. Quality warnings flag blur, glare, crop, and duplicates.
               </Text>
+              {failedUploadCount > 0 ? (
+                <Text size="sm" c="orange" role="status">
+                  {`${String(failedUploadCount)} page upload(s) failed. Retry before review, or continue and use OCR-phase job Retry when live.`}
+                </Text>
+              ) : null}
               <SimpleGrid cols={3} spacing="xs">
                 {pages.map((page) => (
                   <Box
@@ -308,7 +454,7 @@ export function OcrMobilePage() {
                     onClick={() => setSelected(page.n)}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Page ${String(page.n)}${page.quality ? `, warning ${page.quality}` : ""}`}
+                    aria-label={`Page ${String(page.n)}${page.quality ? `, warning ${page.quality}` : ""}${page.upload === "failed" ? ", upload failed" : ""}`}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
@@ -319,7 +465,11 @@ export function OcrMobilePage() {
                     <Text size="xs" fw={600}>
                       {page.n}
                     </Text>
-                    {page.quality ? (
+                    {page.upload === "failed" ? (
+                      <Badge size="xs" color="red" mt={4}>
+                        failed
+                      </Badge>
+                    ) : page.quality ? (
                       <Badge size="xs" color="orange" mt={4}>
                         {page.quality}
                       </Badge>
@@ -332,6 +482,16 @@ export function OcrMobilePage() {
                   <Camera size={14} aria-hidden />
                   Capture
                 </Button>
+                {failedUploadCount > 0 ? (
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    onAction={retryFailedPageUploads}
+                  >
+                    Retry failed uploads
+                  </Button>
+                ) : null}
                 <Button
                   className="om-btn-primary"
                   size="sm"
@@ -353,6 +513,11 @@ export function OcrMobilePage() {
               <Text size="sm" c="dimmed">
                 Fix or remove pages with warnings. Selected page: {selected}.
               </Text>
+              {failedUploadCount > 0 ? (
+                <Text size="sm" c="orange" role="status">
+                  {`${String(failedUploadCount)} page(s) still marked failed — submit when ready; live OCR phase can Retry job failures.`}
+                </Text>
+              ) : null}
               <Group gap="xs">
                 <IconButton
                   className="om-header-icon-btn"
@@ -392,38 +557,171 @@ export function OcrMobilePage() {
               <Title order={3} style={{ fontWeight: 500 }}>
                 OCR processing
               </Title>
-              <Stack gap="xs">
-                {[
-                  { label: "Upload complete", done: true },
-                  { label: "Creating OCR jobs", done: true },
-                  { label: "OCR processing", done: false },
-                  { label: "Ready for Review", done: false },
-                ].map((item) => (
-                  <Group key={item.label} gap="sm">
-                    <CheckCircle2
-                      size={16}
-                      color={
-                        item.done
-                          ? "var(--mantine-color-teal-6)"
-                          : "var(--mantine-color-dimmed)"
-                      }
-                      aria-hidden
-                    />
-                    <Text size="sm" {...(item.done ? {} : { c: "dimmed" as const })}>
-                      {item.label}
+
+              {liveJobs ? (
+                <>
+                  <Text size="sm" c="dimmed">
+                    {jobsLoading
+                      ? "Loading OCR jobs…"
+                      : "Live church OCR jobs — Retry failed jobs or Seed when ready_to_seed."}
+                    {jobsError ? ` · ${jobsError}` : ""}
+                  </Text>
+                  {actionMessage ? (
+                    <Text size="sm" role="status">
+                      {actionMessage}
                     </Text>
-                  </Group>
-                ))}
-              </Stack>
-              <Text size="sm" c="dimmed">
-                Mock progress — real job APIs wire in after portal auth (Wave B).
-              </Text>
-              <Button className="om-btn-ghost" variant="secondary" size="sm" onAction={() => setPhase(1)}>
+                  ) : null}
+                  {jobs.length === 0 && !jobsLoading ? (
+                    <Text size="sm" c="dimmed">
+                      No OCR jobs yet for this church. Capture and upload from desktop or mobile
+                      first.
+                    </Text>
+                  ) : (
+                    <Stack gap="sm" role="list" aria-label="OCR jobs">
+                      {jobs.map((job) => {
+                        const wizard = mapOcrJobToWizardStatus(job);
+                        const pending = actionPendingId === job.id;
+                        const retryEligible = canRetryOcrJob(job);
+                        const seedEligible = canSeedOcrJob(job);
+                        return (
+                          <Box
+                            key={job.id}
+                            role="listitem"
+                            p="sm"
+                            style={{
+                              borderRadius: 8,
+                              border: "1px solid var(--mantine-color-default-border)",
+                            }}
+                          >
+                            <Stack gap={6}>
+                              <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                <Text size="sm" fw={500} lineClamp={2}>
+                                  {job.original_filename ?? job.filename}
+                                </Text>
+                                <Badge
+                                  variant="light"
+                                  color={wizard === "failed" ? "red" : "navy"}
+                                >
+                                  {WIZARD_STATUS_LABEL[wizard]}
+                                </Badge>
+                              </Group>
+                              {job.error_message ? (
+                                <Text size="xs" c="orange">
+                                  {job.error_message}
+                                </Text>
+                              ) : null}
+                              {retryEligible || seedEligible ? (
+                                <Group gap="xs">
+                                  {retryEligible ? (
+                                    <Button
+                                      className="om-btn-ghost"
+                                      variant="secondary"
+                                      size="sm"
+                                      isDisabled={pending}
+                                      onAction={() => runRetry(job)}
+                                    >
+                                      {pending ? "…" : "Retry"}
+                                    </Button>
+                                  ) : null}
+                                  {seedEligible ? (
+                                    <Button
+                                      className="om-btn-ghost"
+                                      variant="secondary"
+                                      size="sm"
+                                      isDisabled={pending}
+                                      onAction={() => setPendingSeedId(job.id)}
+                                    >
+                                      Seed
+                                    </Button>
+                                  ) : null}
+                                </Group>
+                              ) : null}
+                            </Stack>
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  )}
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    isDisabled={jobsLoading || !churchId}
+                    onAction={() => {
+                      if (churchId) void reloadLiveJobs(churchId);
+                    }}
+                  >
+                    Refresh jobs
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Stack gap="xs">
+                    {MOCK_OCR_STEPS.map((item) => (
+                      <Group key={item.label} gap="sm">
+                        <CheckCircle2
+                          size={16}
+                          color={
+                            item.done
+                              ? "var(--mantine-color-teal-6)"
+                              : "var(--mantine-color-dimmed)"
+                          }
+                          aria-hidden
+                        />
+                        <Text size="sm" {...(item.done ? {} : { c: "dimmed" as const })}>
+                          {item.label}
+                        </Text>
+                      </Group>
+                    ))}
+                  </Stack>
+                  <Text size="sm" c="dimmed">
+                    {jobsError
+                      ? `Could not load live jobs (${jobsError}). Showing preview checklist.`
+                      : "Preview checklist — set VITE_PORTAL_AUTH_MODE=live with church context for job Retry/Seed."}
+                  </Text>
+                </>
+              )}
+
+              <Button
+                className="om-btn-ghost"
+                variant="secondary"
+                size="sm"
+                onAction={() => {
+                  setPhase(1);
+                  setActionMessage(null);
+                  setPendingSeedId(null);
+                }}
+              >
                 Start another session
               </Button>
             </Stack>
           </Card>
         )}
+
+        <AlertDialog
+          title="Seed to records?"
+          description={
+            pendingSeed
+              ? `Seed “${pendingSeed.original_filename ?? pendingSeed.filename}” into the church record tables? This writes live sacramental data.`
+              : "Seed this OCR job into records?"
+          }
+          confirmLabel="Seed to records"
+          cancelLabel="Cancel"
+          intent="confirmation"
+          isConfirmPending={
+            pendingSeedId !== null && actionPendingId === pendingSeedId
+          }
+          isOpen={pendingSeedId !== null}
+          onOpenChange={(open) => {
+            if (!open && actionPendingId === null) setPendingSeedId(null);
+          }}
+          onConfirm={() => {
+            if (pendingSeed) runSeed(pendingSeed);
+          }}
+          onCancel={() => {
+            if (actionPendingId === null) setPendingSeedId(null);
+          }}
+        />
       </Box>
     </PageLayout>
   );
