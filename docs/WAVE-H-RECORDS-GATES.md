@@ -15,10 +15,11 @@ OM role hierarchy (canonical, highest first): `super_admin` → `admin` → `chu
 | Action | OM server today | Customer Portal today | Wave H editor target |
 |---|---|---|---|
 | **Read** list / single record | `requireAuth` on `GET /api/*-records` and `GET /api/*-records/:id`; scoped by `church_id` query and/or session `church_id` + per-church DB | Live list when `AUTH_MODE=live` + session `user.churchId`; read-only UI | Same read path; detail drawer uses `GET /api/*-records/:id?church_id=` |
-| **Create** | `POST /api/*-records` — `requireAuth`; field validation in route handlers | **Not exposed** (editors blocked) | `canManageRecords` (deacon+) before showing create; POST body includes session `church_id` |
-| **Update** | `PUT /api/*-records/:id` — `requireAuth`; writes sacrament history on change | **Not exposed** | `canManageRecords` (deacon+) for edit affordances |
-| **Delete** | `DELETE /api/*-records/:id` — `requireAuth`; history event on delete | **Baptism editor (2026-07-19):** `DELETE /api/baptism-records/:id?church_id=` via `deleteBaptismRecord`; deacon+ client gate + AlertDialog confirm | `canManageRecords` (deacon+) + destructive confirm (`@om/ui` AlertDialog) |
-| **Status / verification** | `PATCH /api/*-records/:id/status` — clergy/admin workflows | **Not exposed** | Priest+ or church_admin per legacy parity (confirm in editor QA) |
+| **Create** | `POST /api/*-records` — `requireAuth` + hierarchy `requireRole('deacon')` (`canManageRecords`) | Client `canManageRecords` (deacon+) before showing create; POST body includes session `church_id` | Same — server now enforces deacon+ |
+| **Update** | `PUT /api/*-records/:id` — `requireAuth` + `requireRole('deacon')` (also closed prior gap where PUT lacked auth) | `canManageRecords` (deacon+) for edit affordances | Same |
+| **Delete** | `DELETE /api/*-records/:id` — `requireAuth` + `requireRole('deacon')` | **Baptism editor:** `DELETE /api/baptism-records/:id?church_id=` via `deleteBaptismRecord`; deacon+ client gate + AlertDialog confirm | Same |
+| **Status / verification** | `PATCH /api/*-records/:id/status` — `requireAuth` + `requireRole('priest')` | Not exposed in portal | Priest+ |
+| **Batch** | `POST /api/*-records/batch` — `requireAuth` + `requireRole('deacon')` (auth gap closed 2026-07-19) | Out of Wave H UI scope | Same |
 | **Export / import** | Separate admin/import routes | Out of Wave H scope | Document when product requests |
 
 **Portal enforcement (list phase — shipped):**
@@ -28,7 +29,7 @@ OM role hierarchy (canonical, highest first): `super_admin` → `admin` → `chu
 - Live list requires `authMode === "live"` and `user.churchId > 0`; otherwise honest mock/empty states.
 - Nav/route access follows Wave B `RequireAuth` when `VITE_PORTAL_REQUIRE_AUTH=true`; role-gated nav items remain TBD with product.
 
-**Known OM gap (document, do not paper over):** sacrament list/create routes use `requireAuth` but not `requireRole` / `canManageRecords` on the server today. Wave H must add **client-side** role gates before exposing editors; server-side role enforcement is a recommended follow-up in OM, not invented in the portal.
+**OM server enforcement (2026-07-19):** sacrament mutating routes (`POST`/`PUT`/`DELETE`/`batch`) use `requireAuth` + hierarchy `requireRole('deacon')` from `server/src/utils/roles.js` (`canManageRecords` parity). `PATCH .../status` uses `requireRole('priest')`. GETs remain `requireAuth` only. Receipt: `OMBC-20260719-214357-E075AF`.
 
 ---
 

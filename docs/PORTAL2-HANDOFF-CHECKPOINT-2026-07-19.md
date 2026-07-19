@@ -190,7 +190,7 @@ cd /var/www/orthodoxmetrics/prod
 
 ### Known OM backend gap (residual)
 
-Sacrament mutating routes use `requireAuth` only — **no server `requireRole` / `canManageRecords`**. Portal enforces deacon+ on client; **recommended follow-up:** add server role gates in OM (`server/src/api/{baptism,marriage,funeral}.js`).
+Sacrament mutating routes gated 2026-07-19 (`requireAuth` + hierarchy `requireRole('deacon')`; status `priest+`). See `WAVE-H-RECORDS-GATES.md` §1 · receipt `OMBC-20260719-214357-E075AF`.
 
 ---
 
@@ -198,8 +198,8 @@ Sacrament mutating routes use `requireAuth` only — **no server `requireRole` /
 
 | # | Task | Notes |
 |---|---|---|
-| 1 | **Smoke-test baptism CRUD + history + delete** on prod `/portal2` as `frjames@ssppoc.org` | Create → list → edit → history entry → delete. Not yet operator-signed after `0d3264a`. |
-| 2 | **OM backend:** `requireRole` / `canManageRecords` on sacrament POST/PUT/DELETE | See `docs/WAVE-H-RECORDS-GATES.md` §1 |
+| 1 | **Smoke-test baptism CRUD + history + delete** on prod `/portal2` | **API PASS (omsvc/church 46) 2026-07-19** — create/edit/history/delete; see `docs/PORTAL2-BAPTISM-SMOKE-2026-07-19.md`. **UI as frjames still unsigned** (password not vaulted; browser MCP unavailable). |
+| 2 | **OM backend:** `requireRole` / `canManageRecords` on sacrament POST/PUT/DELETE | **DONE 2026-07-19** — `OMBC-20260719-214357-E075AF`; baptism/marriage/funeral mutating routes gated deacon+; status PATCH priest+; PUT/batch auth gap closed. |
 | 3 | **Marriage editor** | Reuse baptism pattern; turn baptism dual-run **OFF** first per policy |
 | 4 | **Funeral editor** | Same as marriage |
 | 5 | **Wave K Go/No-Go** / global `/portal` cutover | **Not authorized** — needs 2+ pilot churches, rollback test, MVP parity |
