@@ -1,0 +1,232 @@
+/* ── Portal-specific styles ──────────────────────────────────────────────────
+   Provides base styles for React Aria Components (which are unstyled)
+   and portal-level overrides. Uses Mantine's CSS variables so all
+   surfaces automatically adapt to light / dark color scheme.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Sidebar navigation links (RAC Link) ─────────────────────────────────── */
+
+.om-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-family: inherit;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--om-sidebar-text);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.om-sidebar-link[data-hovered],
+.om-sidebar-link:hover {
+  background: color-mix(in srgb, var(--mantine-color-white) 7%, transparent);
+  color: var(--om-sidebar-text-hover);
+}
+
+.om-sidebar-link.active {
+  background: var(--om-sidebar-surface);
+  color: var(--mantine-color-white);
+  font-weight: 500;
+  border-left-color: var(--om-sidebar-accent);
+}
+
+.om-sidebar-link[data-focus-visible] {
+  outline: 2px solid var(--om-sidebar-accent);
+  outline-offset: -2px;
+}
+
+/* ── Header icon buttons (RAC Button) ────────────────────────────────────── */
+
+.om-header-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: var(--mantine-radius-sm);
+  cursor: pointer;
+  outline: none;
+  color: var(--mantine-color-dimmed);
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.om-header-icon-btn[data-hovered],
+.om-header-icon-btn:hover {
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+
+.om-header-icon-btn[data-focus-visible] {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+/* ── Header user account button (RAC Button) ─────────────────────────────── */
+
+.om-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--mantine-radius-md);
+  cursor: pointer;
+  outline: none;
+  color: var(--mantine-color-text);
+  transition: background 0.1s;
+  max-width: 220px;
+}
+
+.om-user-btn[data-hovered],
+.om-user-btn:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.om-user-btn[data-focus-visible] {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+/* ── Primary action button (RAC Button) ──────────────────────────────────── */
+
+.om-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--mantine-color-navy-7);
+  color: var(--mantine-color-white);
+  border: none;
+  border-radius: var(--mantine-radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.om-btn-primary[data-hovered],
+.om-btn-primary:hover {
+  background: var(--mantine-color-navy-8);
+}
+
+.om-btn-primary[data-focus-visible] {
+  outline: 2px solid var(--mantine-color-gold-5);
+  outline-offset: 2px;
+}
+
+/* ── Ghost / secondary button (RAC Button) ───────────────────────────────── */
+
+.om-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--mantine-color-text);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.om-btn-ghost[data-hovered],
+.om-btn-ghost:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.om-btn-ghost[data-focus-visible] {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+/* ── Menu popover surface (RAC Popover) ──────────────────────────────────── */
+
+.om-menu-popover {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  box-shadow: var(--mantine-shadow-md);
+  min-width: 192px;
+  padding: 5px;
+  outline: none;
+  z-index: 300;
+}
+
+/* ── Menu items (RAC MenuItem) ───────────────────────────────────────────── */
+
+.om-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--mantine-color-text);
+  border-radius: var(--mantine-radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.08s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.om-menu-item[data-focused],
+.om-menu-item[data-hovered],
+.om-menu-item:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.om-menu-item--danger {
+  color: var(--mantine-color-red-6);
+}
+
+.om-menu-item--danger[data-focused],
+.om-menu-item--danger[data-hovered],
+.om-menu-item--danger:hover {
+  background: var(--mantine-color-red-0);
+  color: var(--mantine-color-red-7);
+}
+
+/* ── Menu separator (RAC Separator) ─────────────────────────────────────── */
+
+.om-menu-sep {
+  border: none;
+  border-top: 1px solid var(--mantine-color-default-border);
+  margin: 4px 7px;
+}
+
+/* ── Responsive utilities ────────────────────────────────────────────────── */
+
+/* Hide hamburger on large desktop; Mantine's hiddenFrom="lg" handles this */
+/* but we reinforce with a portal-level rule for safety */
+@media (min-width: 1200px) {
+  .om-hide-lg {
+    display: none !important;
+  }
+}

@@ -1,0 +1,36 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --om-sidebar-bg: var(--mantine-color-navy-7);
+  --om-sidebar-border: rgba(255, 255, 255, 0.09);
+  --om-sidebar-surface: rgba(255, 255, 255, 0.11);
+  --om-sidebar-text: rgba(255, 255, 255, 0.62);
+  --om-sidebar-text-hover: rgba(255, 255, 255, 0.90);
+  --om-sidebar-text-muted: rgba(255, 255, 255, 0.45);
+  --om-sidebar-text-faint: rgba(255, 255, 255, 0.28);
+  --om-sidebar-accent: var(--mantine-color-gold-5);
+}
+
+[data-mantine-color-scheme="dark"] {
+  --om-sidebar-bg: var(--mantine-color-navy-9);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+}
