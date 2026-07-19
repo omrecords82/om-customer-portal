@@ -28,6 +28,7 @@ pnpm install
 | `pnpm typecheck` | `tsc -b` |
 | `pnpm test` | Vitest |
 | `pnpm validate:deps` | Fail on prohibited UI libs |
+| `pnpm validate:auth-pilot` | Auth pilot env dry-run (no API calls) |
 | `pnpm build` | Production build |
 | `pnpm deploy:static` | Build `/portal2` + rsync to deploy dir |
 
@@ -51,6 +52,8 @@ VITE_PORTAL_BASE_PATH=/portal2 ./scripts/deploy-static.sh
 | `VITE_PORTAL_REQUIRE_AUTH` | `false` | When `true`, shell routes redirect to `/auth/login` |
 
 Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/api/auth/check`. Do **not** flip global login from `/portal` to `/portal2` without an explicit cutover decision.
+
+Per-tenant pilot enablement runbook: `docs/AUTH-PILOT-CHECKLIST.md` · env dry-run: `pnpm validate:auth-pilot`
 
 ### Records editor dual-run (Wave H prep)
 

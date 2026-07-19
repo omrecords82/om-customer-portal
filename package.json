@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "validate:deps": "node ./scripts/check-prohibited-deps.mjs",
+    "validate:auth-pilot": "node ./scripts/auth-pilot-dry-run.mjs",
     "validate": "pnpm lint && pnpm typecheck && pnpm validate:deps && pnpm test && pnpm build",
     "preview": "vite preview",
     "deploy:static": "bash ./scripts/deploy-static.sh"

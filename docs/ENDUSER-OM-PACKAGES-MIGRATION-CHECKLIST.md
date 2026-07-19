@@ -231,7 +231,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Post-login routing policy recorded: pilots stay on `/portal2`; **do not** globally flip legacy `/portal` (Wave K)
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
 - [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
-- [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) per tenant
+- [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) per tenant — operator scaffolding: `docs/AUTH-PILOT-CHECKLIST.md`, `pnpm validate:auth-pilot`, Account session diagnostics when `AUTH_MODE=live`
 - [x] Account password change dialog + profile surface exist; **sessions list + revoke** wired on `AccountPage` — evidence: GET/DELETE `/api/user/sessions`, POST `/api/user/sessions/revoke-others` via `settingsApi.ts` when `AUTH_MODE=live`; preview keeps honest mock sessions
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events
 - [x] SPA shell links via **approved temporary** basename-aware RAC adapters (see §2.2 waivers) until GAP-LINK-* closes — document in `docs/om-package-integration.md`; do not invent fake `@om/ui` wrappers

@@ -7,9 +7,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { authMode } from "../../auth/config";
+import { buildAuthPilotDiagnostics } from "../../auth/authPilotDiagnostics";
+import { authMode, requireAuth } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import { parish } from "../../data/session";
+import { useParishProfile } from "../../shell/ParishProfileProvider";
 import {
   changeUserPassword,
   fetchNotificationPrefs,
@@ -32,8 +34,32 @@ type SessionConfirm = {
 };
 
 export function AccountPage() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, ready, isAuthenticated } = useAuth();
+  const { source: parishSource, loading: parishLoading, error: parishError } =
+    useParishProfile();
   const live = authMode === "live";
+
+  const pilotDiagnostics = useMemo(
+    () =>
+      buildAuthPilotDiagnostics({
+        authMode,
+        requireAuth,
+        ready,
+        isAuthenticated,
+        user,
+        parishSource,
+        parishLoading,
+        parishError,
+      }),
+    [
+      ready,
+      isAuthenticated,
+      user,
+      parishSource,
+      parishLoading,
+      parishError,
+    ],
+  );
 
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -260,6 +286,50 @@ export function AccountPage() {
             Live profile and notification settings load from OM account APIs when
             authenticated.
           </Text>
+        ) : null}
+
+        {pilotDiagnostics.length > 0 ? (
+          <Card padding="lg" withBorder>
+            <Stack gap="xs">
+              <Group justify="space-between" align="center">
+                <Title order={3} style={{ fontWeight: 500 }}>
+                  Session diagnostics
+                </Title>
+                <Badge size="sm" variant="light" color="blue">
+                  Live pilot
+                </Badge>
+              </Group>
+              <Text size="sm" c="dimmed">
+                Operator verification — session church context and parish settings
+                API. See docs/AUTH-PILOT-CHECKLIST.md.
+              </Text>
+              <Stack gap={4}>
+                {pilotDiagnostics.map((line) => (
+                  <Group key={line.label} gap="xs" wrap="nowrap" align="flex-start">
+                    {line.ok === true ? (
+                      <Badge size="xs" color="green" variant="light">
+                        ok
+                      </Badge>
+                    ) : line.ok === false ? (
+                      <Badge size="xs" color="red" variant="light">
+                        check
+                      </Badge>
+                    ) : (
+                      <Badge size="xs" color="gray" variant="light">
+                        info
+                      </Badge>
+                    )}
+                    <Text size="sm">
+                      <Text span fw={500}>
+                        {line.label}:{" "}
+                      </Text>
+                      {line.value}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            </Stack>
+          </Card>
         ) : null}
 
         <Card padding="lg">
