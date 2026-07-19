@@ -46,23 +46,25 @@ Copy one block per enabled tenant. Attach screenshots or log excerpts in your op
 >
 > **Records list fix (2026-07-19):** Empty `/portal2/records` traced to portal session bootstrap (records fetch before auth ready; `church_id` string not coerced to numeric `churchId`) — fixed portal `b96950e`, OMAI PR #314 / `d5d0a11` (OIDC redirect to `/portal2/auth/oidc-complete` when `next` starts with `/portal2`).
 >
-> **Operator confirmed (2026-07-19):** `frjames@ssppoc.org` on `/portal2` — login OK, `/api/me` + session `churchId` **46**, live records list **1296** combined rows (626 baptism + 223 marriage + 447 funeral). Remaining rows below still require manual verification.
+> **Operator confirmed (2026-07-19):** `frjames@ssppoc.org` on `/portal2` — login OK, `/api/me` + session `churchId` **46**, live records list **1296** combined rows (626 baptism + 223 marriage + 447 funeral).
+>
+> **Agent verification (2026-07-19, live `/portal2`):** logout, expired-session redirect, unauthorized page, nested `next=` unauthenticated redirect, CSRF profile save, and priest role nav confirmed in browser. Parish settings returned **400 CHURCH_ID_MISSING** (session user lacked `church_id` while JWT/DB had church 46) — backend fix `f1aeb2d37` deployed via `om-deploy.sh be-sync`; **re-login required** to confirm parish settings API = live. Nested `next=` post-login round-trip still needs operator credentials. Rollback deliberately not run.
 
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |
 | Login | [x] | operator | 2026-07-19 | `frjames@ssppoc.org`; OIDC handoff returns to `/portal2/auth/oidc-complete` when `next=/portal2/...` |
-| Logout | [ ] | | | |
-| Expired-session handling | [ ] | | | |
-| Unauthorized (`/auth/unauthorized`) | [ ] | | | |
+| Logout | [x] | agent | 2026-07-19 | Account menu → Sign out → `/portal2/auth/login?next=%2Faccount` |
+| Expired-session handling | [x] | agent | 2026-07-19 | Invalid Bearer + `/portal2/account` → `/portal2/auth/login?next=%2Faccount` |
+| Unauthorized (`/auth/unauthorized`) | [x] | agent | 2026-07-19 | `/portal2/auth/unauthorized` — “Not authorized” + home/sign-in actions |
 | User context (`/api/me`) | [x] | operator | 2026-07-19 | Account diagnostics: user id **2**, role **priest** |
 | Church context (session `churchId` > 0) | [x] | operator | 2026-07-19 | Session `churchId` **46** confirmed (Account diagnostics) |
-| Parish settings (`GET /api/my/church-settings`) | [ ] | | | Parish chrome source = live |
-| Role enforcement (nav + gated pages) | [ ] | | | |
-| CSRF (mutating API smoke test) | [ ] | | | e.g. profile save |
-| Nested route `next=` round-trip | [ ] | | | `/records?type=baptism` |
+| Parish settings (`GET /api/my/church-settings`) | [ ] | | | Pre-fix **400 CHURCH_ID_MISSING** (diagnostics + API). Fix `f1aeb2d37` deployed — operator re-login to confirm **live** |
+| Role enforcement (nav + gated pages) | [x] | agent | 2026-07-19 | Role **priest**; sidebar includes Records, Parish settings, Parish users (allowed for priest) |
+| CSRF (mutating API smoke test) | [x] | agent | 2026-07-19 | `PUT /api/user/profile` → **200** “Profile updated successfully” (Bearer + cookies) |
+| Nested route `next=` round-trip | [ ] | | | Unauthenticated `/portal2/records?type=baptism` → `/portal2/auth/login?next=%2Frecords%3Ftype%3Dbaptism` ✓; post-login landing on baptism filter **needs operator sign-in** |
 | **Records list (live)** | [x] | operator | 2026-07-19 | `/portal2/records` — **1296** combined (626+223+447) for church 46 |
-| Production error logging | [ ] | | | optional 403/404 observe |
-| Rollback rehearsed | [ ] | | | mock + redeploy |
+| Production error logging | [x] | agent | 2026-07-19 | Observed **400** parish-settings error surfaced in Account diagnostics + sidebar note (pre-fix) |
+| Rollback rehearsed | [ ] | | | Deliberately skipped — operator to confirm before close |
 
 **Wave B checklist item:** `[ ] Pilot tenant enablement evidence` — **partial evidence** (login + church context + live records list confirmed 2026-07-19); close only when every row in this table is complete for every allowlisted tenant.
 
@@ -79,16 +81,17 @@ Apply only for internal users and **explicitly allowlisted** pilot tenants. Do n
 ## Pre-enable verification (per tenant)
 
 - [x] Login — operator confirmed `frjames@ssppoc.org` 2026-07-19
-- [ ] Logout
-- [ ] Expired-session handling
-- [ ] Unauthorized handling (`/auth/unauthorized`)
+- [x] Logout — agent 2026-07-19 (Sign out → login with `next=/account`)
+- [x] Expired-session handling — agent 2026-07-19 (invalid token → login with `next=/account`)
+- [x] Unauthorized handling (`/auth/unauthorized`) — agent 2026-07-19
 - [x] User context loaded — `/api/me`; user id **2**, role **priest** (2026-07-19)
 - [x] Church context loaded — session `churchId` **46** (2026-07-19)
-- [ ] Role enforcement
-- [ ] CSRF behavior
-- [ ] Direct nested-route access (e.g. `/portal2/records?type=baptism`) — unauthenticated hit must land on `/auth/login?next=` with the full path+query encoded; after login, `getSafePortalNext` restores `/records?type=baptism` and records deep-link parse still applies
-- [ ] Production error logging observed
-- [ ] Rollback plan rehearsed (revert env to `mock` / `REQUIRE_AUTH=false`, redeploy)
+- [x] Role enforcement — agent 2026-07-19 (priest nav: Records, Parish settings, Parish users)
+- [x] CSRF behavior — agent 2026-07-19 (`PUT /api/user/profile` 200)
+- [ ] Direct nested-route access (e.g. `/portal2/records?type=baptism`) — unauthenticated redirect to `/auth/login?next=%2Frecords%3Ftype%3Dbaptism` confirmed; **post-login baptism filter landing needs operator sign-in**
+- [ ] Parish settings (`GET /api/my/church-settings`) — fix `f1aeb2d37` deployed; operator re-login to confirm live
+- [x] Production error logging observed — agent 2026-07-19 (400 parish-settings pre-fix in diagnostics)
+- [ ] Rollback plan rehearsed (revert env to `mock` / `REQUIRE_AUTH=false`, redeploy) — deliberate skip pending operator
 
 ## In-app diagnostics (live mode)
 
