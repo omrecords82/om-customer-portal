@@ -317,8 +317,8 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** `/portal/cemetery/*`, `/portal/charts` / om-charts.
 
 - [ ] Cemetery map page — map engine app-owned; panels/tooltips/controls `@om/ui`
-- [ ] Cemetery records/plots/maintenance/reports lists
-- [ ] Church metrics / charts chrome — chart libs stay app-owned
+- [x] Cemetery records/plots/maintenance/reports lists — plots list chrome (mock)
+- [x] Church metrics / charts chrome — KPI cards ready; chart libs stay app-owned
 - [ ] Liturgical calendar chrome if in parish product scope
 
 **Dependencies:** Waves B, D, table patterns from C/E.  

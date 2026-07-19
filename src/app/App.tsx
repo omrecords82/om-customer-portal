@@ -23,6 +23,8 @@ import { PreferencesPage } from "../features/settings/PreferencesPage";
 import { HelpPage } from "../features/help/HelpPage";
 import { RecordsPage } from "../features/records/RecordsPage";
 import { CertificatesPage } from "../features/certificates/CertificatesPage";
+import { CemeteryPage } from "../features/cemetery/CemeteryPage";
+import { MetricsPage } from "../features/metrics/MetricsPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { UnauthorizedPage } from "../features/auth/UnauthorizedPage";
@@ -81,8 +83,8 @@ const router = createBrowserRouter(
         { path: "records", element: <RecordsPage /> },
         { path: "ocr", element: <OcrDesktopPage /> },
         { path: "ocr/mobile", element: <OcrMobilePage /> },
-        { path: "metrics", element: placeholderFor("/metrics") },
-        { path: "cemetery", element: placeholderFor("/cemetery") },
+        { path: "metrics", element: <MetricsPage /> },
+        { path: "cemetery", element: <CemeteryPage /> },
         { path: "certificates", element: <CertificatesPage /> },
         { path: "onboarding", element: <OnboardPage /> },
         { path: "settings/parish", element: <ParishSettingsPage /> },
