@@ -214,6 +214,68 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 ---
 
+### Wave BP — Blueprint productization (required UX sources)
+
+**Goal:** Fully implement the three **Blueprints** UX systems inside Customer Portal as first-class product surfaces — **not** iframe/embed of legacy blueprint routes, and **not** copy-paste of scoped Tailwind.
+
+**Blueprint URLs (legacy preview — super_admin only today):**
+
+| Blueprint | Legacy URL | Legacy source (reference only) |
+|---|---|---|
+| OM OCR Mobile | https://orthodoxmetrics.com/blueprints/om-ocr-mobile | `front-end/src/features/blueprints/om-ocr-mobile/` (~1.3k LOC + Tailwind) |
+| OM OCR Desktop | https://orthodoxmetrics.com/blueprints/om-ocr-desktop | `front-end/src/features/blueprints/om-ocr-desktop/` (~1.9k LOC + Tailwind) |
+| OM Onboard | https://orthodoxmetrics.com/blueprints/om-onboard | `front-end/src/features/blueprints/om-onboard/` (~0.2k LOC + Tailwind) |
+
+**Stack rewrite (mandatory for Customer Portal ports):**
+
+| Concern | Use | Do not use |
+|---|---|---|
+| Layout / surfaces / spacing / responsive structure | **Mantine** | Blueprint scoped Tailwind, MUI, cards-as-layout kits |
+| Interactive controls | **`@om/ui`** first; **React Aria Components** only where `@om/ui` lacks parity (allowlisted + documented) | Raw HTML controls without a11y; Radix/shadcn twins from old kit |
+| Visual tokens | `@om/tokens` + existing portal theme bridge | Hex/Tailwind utility sprawl from blueprint CSS |
+| Data / OCR engines / camera pipelines | App-owned modules in Customer Portal | Forking engines into `@om/ui` |
+
+**Shared blueprint DoD (all three):**
+
+- [ ] Behavior and information architecture match the blueprint preview (phases/steps, primary actions, empty/error/success states)
+- [ ] Routed under Customer Portal (suggested: `/ocr/mobile`, `/ocr`, `/onboarding` or product-approved equivalents under `/portal2` basename)
+- [ ] Zero Tailwind / zero blueprint `styles/tailwind.css` imports in Customer Portal
+- [ ] Mantine owns layout; `@om/ui` (or allowlisted RAC) owns buttons, fields, menus, dialogs, tabs, etc.
+- [ ] Light + dark schemes work via existing `OmThemeSync`
+- [ ] Keyboard / screen-reader basics (named icon buttons, dialog titles, focus order through wizard steps)
+- [ ] Vitest coverage for step-state machines / critical transitions
+- [ ] Visual QA screenshots vs blueprint reference in PR
+- [ ] Legacy `/blueprints/*` routes remain reference-only until Wave K (optional redirect later)
+
+#### BP-1 — OM OCR Mobile (full implementation)
+
+- [ ] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
+- [ ] Camera / file picker / permission-denied / offline-ish empty states
+- [ ] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
+- [ ] Wire real OCR upload/job APIs when Wave B session exists; mock seam until then
+- [ ] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
+
+#### BP-2 — OM OCR Desktop (full implementation)
+
+- [ ] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
+- [ ] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
+- [ ] Job history list + filters; batch actions with AlertDialog confirms
+- [ ] Integrate with existing OM OCR job APIs (parity with legacy `PortalOcrDesktopApp` behavior, new UI only)
+- [ ] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
+
+#### BP-3 — OM Onboard (full implementation)
+
+- [ ] Reimplement church portal preparation / onboarding screen from blueprint
+- [ ] Multi-step readiness checklist using Mantine structure + `@om/ui` controls (app stepper OK)
+- [ ] Persist progress against parish onboarding APIs / Wave C settings
+- [ ] Becomes the primary in-portal onboarding surface (Wave I consumes it)
+
+**Dependencies:** Wave A (harden); Wave B for real APIs; package gaps GAP-FORM-ALERT / GAP-MENU-RICH as needed.  
+**Blockers:** none to start UI port with mocks.  
+**Priority:** **elevate above generic Wave F/I placeholders** — blueprints are the UX source of truth for OCR + onboard.
+
+---
+
 ### Wave E — Records chrome (lists / search / filters)
 
 **Goal:** Records **list and navigation chrome** in the new portal — not AG Grid editors yet.
@@ -232,19 +294,19 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 ---
 
-### Wave F — OCR, assets, certificates chrome
+### Wave F — Assets, certificates chrome (+ OCR adoption)
 
-**Goal:** Staff workflows’ **shells** in the new app; canvases/engines stay app-owned modules.
+**Goal:** Remaining staff workflow chrome. **OCR UI comes from Wave BP** — do not invent a third OCR shell.
 
-**Parity reference:** `/portal/ocr`, `/portal/assets`, `/portal/certificates/*`.
+**Parity reference:** `/portal/assets`, `/portal/certificates/*`; OCR via blueprints (Wave BP).
 
-- [ ] OCR desktop/upload chrome + job list (OCR canvas/engine app-owned)
+- [ ] Adopt BP-1 + BP-2 as the OCR routes (mobile + desktop); remove placeholder OCR page
 - [ ] Assets library browse/collections + AlertDialog confirms
 - [ ] Certificates: list, generate form chrome, history table; designer canvas app-owned
 - [ ] Interactive reports recipient flows if parish-facing
 
-**Dependencies:** Waves B, D, E.  
-**Blockers:** none hard.
+**Dependencies:** Wave BP (OCR); Waves B, D, E.  
+**Blockers:** Wave BP incomplete ⇒ OCR checklist stays open.
 
 ---
 
@@ -280,13 +342,13 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 ### Wave I — Onboarding wizards & public enrollment
 
-**Goal:** First-run and public enrollment in the new app.
+**Goal:** First-run and public enrollment in the new app. **In-portal preparation UI comes from Wave BP-3 (OM Onboard).**
 
-- [ ] Record-tables / record-layouts onboarding steps
-- [ ] Parish onboarding wizard routed in Customer Portal (legacy registry listed `/portal/onboarding` without a mount — design correctly here)
+- [ ] Adopt BP-3 (`om-onboard`) as the primary parish preparation / onboarding surface
+- [ ] Record-tables / record-layouts onboarding steps (beyond blueprint if still required)
 - [ ] Public `/enroll` (or agreed public URL) if still productized
 
-**Dependencies:** Waves B, C, forms patterns.  
+**Dependencies:** Wave BP-3; Waves B, C, forms patterns.  
 **Blockers:** stepper/wizard — package Tabs defer steppers; app-owned stepper OK.
 
 ---
@@ -339,8 +401,9 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 All must be true:
 
-1. [ ] Customer Portal is the **supported** parish end-user UI for agreed MVP scope (auth, hub, records chrome, at least one of certificates/OCR/cemetery as product requires).
-2. [ ] Interactive controls on that surface are `@om/ui` (or promoted `@om/forms` / domain packages); Mantine is shell-only; RAC only behind documented gaps.
+1. [ ] Customer Portal is the **supported** parish end-user UI for agreed MVP scope (auth, hub, records chrome, **OCR mobile + OCR desktop + onboard blueprints**, plus certificates/cemetery as product requires).
+2. [ ] Interactive controls on that surface are `@om/ui` (or promoted `@om/forms` / domain packages); Mantine is shell-only; RAC only behind documented gaps; **no Tailwind blueprint ports**.
+2b. [ ] Blueprints `om-ocr-mobile`, `om-ocr-desktop`, and `om-onboard` are fully implemented in Customer Portal with Mantine + `@om/ui`/RAC stack rewrite (Wave BP signed off).
 3. [ ] No prohibited UI libraries in Customer Portal.
 4. [ ] Tokens resolve via `@om/tokens` for shared semantics; remaining portal-local values documented with package follow-ups.
 5. [ ] Login cutover complete for target tenants; legacy `/portal` end-user SPA frozen or redirected.
@@ -355,6 +418,7 @@ All must be true:
 | Item | Why |
 |---|---|
 | In-place MUI deletion campaign across `prod/front-end` | Wrong model — legacy may linger until cutover; do not boil the ocean |
+| Shipping Customer Portal features by embedding/copying blueprint **Tailwind** trees | Must reimplement with **Mantine + `@om/ui`/RAC** (Wave BP) |
 | Rewriting Modernize `FullLayout` / AG Grid / chart engines / certificate canvas / map engines into `@om/ui` | Heavy engines stay app-owned modules inside Customer Portal as needed |
 | Auth providers / Keycloak / session cookie policy inside packages | Security boundary — app owns it |
 | Pure superadmin / OMAI / Big Book / devel vault (`/devel-tools/parish-vault`) | Out of end-user portal scope |
@@ -369,16 +433,17 @@ All must be true:
 2. **GAP-LINK-*** / **GAP-MENU-RICH** / **GAP-FORM-ALERT** (Codex) as they unblock B–D — or temporary app adapters with no RAC type leakage  
 3. **GAP-TOAST (OQ-2)** human decision  
 4. **Wave B** — Auth & session in new app  
-5. **Wave C** — Account & parish settings  
-6. **Wave D** — Hub depth  
-7. **Wave E** — Records chrome  
-8. **Wave F** — OCR / assets / certificates chrome  
-9. **Wave G** — Cemetery + metrics  
-10. **Record schema contract** then **Wave H** editors  
-11. **Wave I** — Onboarding / enroll  
-12. **Wave J** — Brand tokens / icons  
-13. **Wave K** — Cutover & legacy retirement  
-14. **DoD sign-off**
+5. **Wave BP** — Blueprint productization (**om-ocr-mobile**, **om-ocr-desktop**, **om-onboard**) on Mantine + `@om/ui`/RAC  
+6. **Wave C** — Account & parish settings  
+7. **Wave D** — Hub depth  
+8. **Wave E** — Records chrome  
+9. **Wave F** — Assets / certificates (+ adopt BP OCR routes)  
+10. **Wave G** — Cemetery + metrics  
+11. **Record schema contract** then **Wave H** editors  
+12. **Wave I** — Onboarding extras / enroll (adopt BP-3)  
+13. **Wave J** — Brand tokens / icons  
+14. **Wave K** — Cutover & legacy retirement (incl. optional `/blueprints/*` redirects)  
+15. **DoD sign-off**
 
 ---
 
@@ -390,6 +455,10 @@ All must be true:
 | Static deploy | `/var/www/orthodoxmetrics/portal` |
 | Preview URL | `https://orthodoxmetrics.com/portal2/` |
 | Legacy SPA (parity only) | `https://orthodoxmetrics.com/portal/` → `prod/front-end` |
+| Blueprint: OCR Mobile | `https://orthodoxmetrics.com/blueprints/om-ocr-mobile` |
+| Blueprint: OCR Desktop | `https://orthodoxmetrics.com/blueprints/om-ocr-desktop` |
+| Blueprint: Onboard | `https://orthodoxmetrics.com/blueprints/om-onboard` |
+| Blueprint sources (reference) | `prod/front-end/src/features/blueprints/{om-ocr-mobile,om-ocr-desktop,om-onboard}/` |
 | Package monorepo | `/var/www/workspaces/om-packages` |
 | Integration notes | `om-customer-portal/docs/om-package-integration.md` |
 | This checklist (canonical) | `om-customer-portal/docs/ENDUSER-OM-PACKAGES-MIGRATION-CHECKLIST.md` |
