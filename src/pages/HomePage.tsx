@@ -1,4 +1,4 @@
-import { Box, Card, SimpleGrid, Stack, Text, Title, Group, Divider } from "@mantine/core";
+import { Box, Card, SimpleGrid, Stack, Text, Title, Group } from "@mantine/core";
 import { Button } from "@om/ui/button";
 import {
   Plus,
@@ -6,55 +6,18 @@ import {
   FileText,
   Award,
   Clock,
-  UserPlus,
   Upload,
-  FileBadge,
   CalendarX,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PageLayout } from "../components/PageLayout";
+import { useAuth } from "../auth/AuthProvider";
+import { authMode } from "../auth/config";
 
-// ─── Mock activity data ───────────────────────────────────────────────────────
-
-const RECENT_ACTIVITY = [
-  {
-    id: 1,
-    icon: UserPlus,
-    label: "New member registered",
-    detail: "Alexandra Kozlov",
-    time: "2 hours ago",
-  },
-  {
-    id: 2,
-    icon: FileText,
-    label: "Baptismal record added",
-    detail: "Michael Petrov",
-    time: "Yesterday at 3:14 pm",
-  },
-  {
-    id: 3,
-    icon: Upload,
-    label: "OCR upload processed",
-    detail: "12 pages — registry scan",
-    time: "2 days ago",
-  },
-  {
-    id: 4,
-    icon: FileBadge,
-    label: "Certificate of marriage issued",
-    detail: "George & Maria Ivanova",
-    time: "3 days ago",
-  },
-  {
-    id: 5,
-    icon: FileText,
-    label: "Chrismation record updated",
-    detail: "Natalia Sokolova",
-    time: "4 days ago",
-  },
-];
-
-// ─── Summary card ─────────────────────────────────────────────────────────────
+/**
+ * Hub honesty (Wave D): do not show fake KPI/activity as if live.
+ * Live dashboard APIs are not wired yet — render honest empty / preview states.
+ */
 
 function SummaryCard({
   label,
@@ -114,73 +77,19 @@ function SummaryCard({
   );
 }
 
-// ─── Recent activity panel ────────────────────────────────────────────────────
-
-function RecentActivityPanel() {
-  return (
-    <Card style={{ height: "100%" }}>
-      <Group justify="space-between" mb="md" align="center">
-        <Text fw={500} size="sm">
-          Recent Activity
-        </Text>
-        <Group gap={4} align="center">
-          <Clock size={13} color="var(--mantine-color-dimmed)" aria-hidden="true" />
-          <Text size="xs" c="dimmed">
-            Last 7 days
-          </Text>
-        </Group>
-      </Group>
-
-      <Stack gap={0}>
-        {RECENT_ACTIVITY.map((item, i) => {
-          const Icon = item.icon;
-          return (
-            <Box key={item.id}>
-              <Group py="sm" gap="sm" wrap="nowrap" align="flex-start">
-                <Box
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 6,
-                    background: "var(--mantine-color-default-hover)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--mantine-color-dimmed)",
-                    flexShrink: 0,
-                    marginTop: 1,
-                  }}
-                >
-                  <Icon size={14} aria-hidden="true" />
-                </Box>
-                <Box style={{ flex: 1, minWidth: 0 }}>
-                  <Text size="sm" style={{ lineHeight: 1.35 }}>
-                    {item.label}
-                  </Text>
-                  <Text size="xs" c="dimmed" mt={1}>
-                    {item.detail}
-                  </Text>
-                </Box>
-                <Text
-                  size="xs"
-                  c="dimmed"
-                  style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-                >
-                  {item.time}
-                </Text>
-              </Group>
-              {i < RECENT_ACTIVITY.length - 1 && <Divider />}
-            </Box>
-          );
-        })}
-      </Stack>
-    </Card>
-  );
-}
-
-// ─── Empty state panel ────────────────────────────────────────────────────────
-
-function EmptyStatePanel() {
+function HonestEmptyPanel({
+  title,
+  description,
+  icon: Icon,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  icon: typeof Clock;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
     <Card
       style={{
@@ -207,30 +116,37 @@ function EmptyStatePanel() {
           marginBottom: 14,
         }}
       >
-        <CalendarX size={24} aria-hidden="true" />
+        <Icon size={24} aria-hidden="true" />
       </Box>
       <Text fw={500} size="sm" mb={6}>
-        No upcoming events
+        {title}
       </Text>
-      <Text size="xs" c="dimmed" style={{ maxWidth: 240 }} mb="md">
-        Add events to the parish calendar to see them here.
+      <Text size="xs" c="dimmed" style={{ maxWidth: 280 }} mb="md">
+        {description}
       </Text>
-      <Button
-        className="om-btn-ghost"
-        variant="secondary"
-        size="sm"
-        accessibleLabel="Go to parish calendar"
-      >
-        Open Calendar
-      </Button>
+      {actionLabel && onAction ? (
+        <Button
+          className="om-btn-ghost"
+          variant="secondary"
+          size="sm"
+          accessibleLabel={actionLabel}
+          onAction={onAction}
+        >
+          {actionLabel}
+        </Button>
+      ) : null}
     </Card>
   );
 }
 
-// ─── Home page ────────────────────────────────────────────────────────────────
-
 export function HomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const liveSession = authMode === "live" && user?.churchId != null;
+  const welcomeLine = liveSession
+    ? `Signed in as ${user.displayName}. Hub KPIs stay empty until live dashboard APIs connect.`
+    : "Welcome to the Customer Portal preview. Summary and activity stay empty (not sample data).";
+
   const primaryAction = (
     <Button
       className="om-btn-primary"
@@ -249,10 +165,16 @@ export function HomePage() {
   return (
     <PageLayout
       title="Parish Dashboard"
-      description="Welcome to the Saints Peter and Paul Orthodox Church portal."
+      description={welcomeLine}
       action={primaryAction}
     >
       <Stack gap="lg">
+        <Text size="sm" c="dimmed" role="status">
+          {liveSession
+            ? "Dashboard KPIs and activity feed wait on live hub APIs — showing honest empty states (not sample data)."
+            : "Preview mode — summary and activity are empty until live auth and hub APIs are enabled."}
+        </Text>
+
         <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
           <Button
             className="om-btn-ghost"
@@ -261,6 +183,7 @@ export function HomePage() {
               void navigate("/ocr");
             }}
           >
+            <Upload size={14} aria-hidden="true" />
             Start OCR batch
           </Button>
           <Button
@@ -283,35 +206,42 @@ export function HomePage() {
           </Button>
         </SimpleGrid>
 
-        {/* Summary cards */}
-        <SimpleGrid
-          cols={{ base: 1, sm: 2, lg: 3 }}
-          spacing="sm"
-        >
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
           <SummaryCard
             label="Active Members"
-            value="348"
-            note="Registered parishioners"
+            value="—"
+            note="Membership counts when hub APIs connect"
             icon={Users}
           />
           <SummaryCard
             label="Records This Month"
-            value="12"
-            note="Baptisms, marriages, chrismations"
+            value="—"
+            note="Sacramental totals when records APIs connect"
             icon={FileText}
           />
           <SummaryCard
             label="Certificates Issued"
-            value="7"
-            note="Year to date"
+            value="—"
+            note="Certificate history when cert APIs connect"
             icon={Award}
           />
         </SimpleGrid>
 
-        {/* Activity + empty state */}
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm">
-          <RecentActivityPanel />
-          <EmptyStatePanel />
+          <HonestEmptyPanel
+            title="No recent activity yet"
+            description="Parish activity will appear here once live hub events are wired. Quick actions above still work."
+            icon={Clock}
+            actionLabel="Open records"
+            onAction={() => {
+              void navigate("/records");
+            }}
+          />
+          <HonestEmptyPanel
+            title="No upcoming events"
+            description="Liturgical calendar is post-MVP. This panel stays empty rather than inventing sample events."
+            icon={CalendarX}
+          />
         </SimpleGrid>
       </Stack>
     </PageLayout>

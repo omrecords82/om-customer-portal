@@ -33,11 +33,36 @@ import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { filterBatches } from "./filterBatches";
 import {
+  canSeedOcrJob,
   fetchChurchOcrJobs,
   mapOcrJobToWizardStatus,
+  retryChurchOcrJob,
+  seedChurchOcrJob,
   uploadOcrJobPages,
 } from "./ocrApi";
+import type { OcrJobDto } from "./ocrApi";
 import type { Batch, BatchStatus, ProcessingMode } from "./types";
+
+function mapJobsToBatches(jobs: readonly OcrJobDto[]): Batch[] {
+  return jobs.map((job) => {
+    const status = mapOcrJobToWizardStatus(job) as BatchStatus;
+    return {
+      id: `job-${job.id}`,
+      jobId: job.id,
+      name: job.original_filename ?? job.filename,
+      recordType: job.record_type
+        ? job.record_type.charAt(0).toUpperCase() + job.record_type.slice(1)
+        : "Baptism",
+      submitted: job.created_at?.slice(0, 10) ?? "—",
+      pages: 1,
+      records: 0,
+      mode: "standard" as const,
+      status,
+      needsReview: status === "ready-for-review" ? 1 : 0,
+      reviewStatus: job.review_status ?? null,
+    };
+  });
+}
 
 type Screen =
   | "history"
@@ -181,8 +206,26 @@ export function OcrDesktopPage() {
   const [uploadedCount, setUploadedCount] = useState(0);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadPending, setUploadPending] = useState(false);
+  const [actionPendingId, setActionPendingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [pendingSeedId, setPendingSeedId] = useState<string | null>(null);
   const [procStep, setProcStep] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const reloadLiveHistory = (churchId: number) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    return fetchChurchOcrJobs(churchId).then((result) => {
+      setHistoryLoading(false);
+      if (!result.ok) {
+        setHistoryError(result.message);
+        setHistorySource("mock");
+        return;
+      }
+      setHistorySource("live");
+      setBatches(mapJobsToBatches(result.jobs));
+    });
+  };
 
   useEffect(() => {
     const churchId = user?.churchId;
@@ -201,29 +244,8 @@ export function OcrDesktopPage() {
         setHistorySource("mock");
         return;
       }
-      if (result.jobs.length === 0) {
-        setHistorySource("live");
-        setBatches([]);
-        return;
-      }
-      const mapped: Batch[] = result.jobs.map((job) => {
-        const status = mapOcrJobToWizardStatus(job) as BatchStatus;
-        return {
-          id: `job-${job.id}`,
-          name: job.original_filename ?? job.filename,
-          recordType: job.record_type
-            ? job.record_type.charAt(0).toUpperCase() + job.record_type.slice(1)
-            : "Baptism",
-          submitted: job.created_at?.slice(0, 10) ?? "—",
-          pages: 1,
-          records: 0,
-          mode: "standard" as const,
-          status,
-          needsReview: status === "ready-for-review" ? 1 : 0,
-        };
-      });
-      setBatches(mapped);
       setHistorySource("live");
+      setBatches(mapJobsToBatches(result.jobs));
     });
     return () => {
       cancelled = true;
@@ -261,6 +283,96 @@ export function OcrDesktopPage() {
   }, [screen, procStep]);
 
   const pendingDelete = batches.find((b) => b.id === pendingDeleteId) ?? null;
+  const pendingSeed = batches.find((b) => b.id === pendingSeedId) ?? null;
+  const churchId = user?.churchId;
+  const liveHistory = historySource === "live" && authMode === "live";
+
+  const runRetry = (batch: Batch) => {
+    if (!churchId || !batch.jobId) return;
+    setActionPendingId(batch.id);
+    setActionMessage(null);
+    void retryChurchOcrJob(churchId, batch.jobId).then((result) => {
+      setActionPendingId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(`Retry queued for “${batch.name}”.`);
+      void reloadLiveHistory(churchId);
+    });
+  };
+
+  const runSeed = (batch: Batch) => {
+    if (!churchId || !batch.jobId) return;
+    setActionPendingId(batch.id);
+    setActionMessage(null);
+    void seedChurchOcrJob(churchId, batch.jobId).then((result) => {
+      setActionPendingId(null);
+      setPendingSeedId(null);
+      if (!result.ok) {
+        setActionMessage(result.message);
+        return;
+      }
+      setActionMessage(`Seeded “${batch.name}” into records.`);
+      void reloadLiveHistory(churchId);
+    });
+  };
+
+  const batchActions = (batch: Batch) => {
+    const pending = actionPendingId === batch.id;
+    const retryEligible = liveHistory && !!batch.jobId && batch.status === "failed";
+    const seedEligible =
+      liveHistory &&
+      !!batch.jobId &&
+      canSeedOcrJob({
+        ...(batch.reviewStatus !== undefined
+          ? { review_status: batch.reviewStatus }
+          : {}),
+      });
+
+    return (
+      <Group gap={4} wrap="nowrap">
+        <Button
+          className="om-btn-ghost"
+          variant="secondary"
+          size="sm"
+          onAction={() => setScreen("review")}
+        >
+          <Eye size={14} aria-hidden />
+          Open
+        </Button>
+        {retryEligible ? (
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            size="sm"
+            isDisabled={pending}
+            onAction={() => runRetry(batch)}
+          >
+            {pending ? "…" : "Retry"}
+          </Button>
+        ) : null}
+        {seedEligible ? (
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            size="sm"
+            isDisabled={pending}
+            onAction={() => setPendingSeedId(batch.id)}
+          >
+            Seed
+          </Button>
+        ) : null}
+        <IconButton
+          className="om-header-icon-btn"
+          variant="quiet"
+          accessibleLabel={`Delete ${batch.name}`}
+          icon={<Trash2 size={14} aria-hidden />}
+          onAction={() => setPendingDeleteId(batch.id)}
+        />
+      </Group>
+    );
+  };
 
   return (
     <PageLayout
@@ -293,10 +405,15 @@ export function OcrDesktopPage() {
             {historyLoading
               ? "Loading OCR jobs…"
               : historySource === "live"
-                ? "History from live OCR jobs API."
+                ? "History from live OCR jobs API. Retry/seed use church-scoped job routes."
                 : "Mock history (set VITE_PORTAL_AUTH_MODE=live with church context for API jobs)."}
             {historyError ? ` · ${historyError}` : ""}
           </Text>
+          {actionMessage ? (
+            <Text size="sm" role="status">
+              {actionMessage}
+            </Text>
+          ) : null}
           <Group justify="space-between" wrap="wrap" align="flex-end">
             <Group gap="sm" wrap="wrap" align="flex-end">
               <TextInput
@@ -379,26 +496,7 @@ export function OcrDesktopPage() {
                         {batch.needsReview}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Button
-                          className="om-btn-ghost"
-                          variant="secondary"
-                          size="sm"
-                          onAction={() => setScreen("review")}
-                        >
-                          <Eye size={14} aria-hidden />
-                          Open
-                        </Button>
-                        <IconButton
-                          className="om-header-icon-btn"
-                          variant="quiet"
-                          accessibleLabel={`Delete ${batch.name}`}
-                          icon={<Trash2 size={14} aria-hidden />}
-                          onAction={() => setPendingDeleteId(batch.id)}
-                        />
-                      </Group>
-                    </Table.Td>
+                    <Table.Td>{batchActions(batch)}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -420,22 +518,7 @@ export function OcrDesktopPage() {
                         : ""}
                     </Text>
                     <Group gap="sm">
-                      <Button
-                        className="om-btn-ghost"
-                        variant="secondary"
-                        size="sm"
-                        onAction={() => setScreen("configure")}
-                      >
-                        Continue
-                      </Button>
-                      <Button
-                        className="om-btn-ghost"
-                        variant="secondary"
-                        size="sm"
-                        onAction={() => setPendingDeleteId(batch.id)}
-                      >
-                        Delete
-                      </Button>
+                      {batchActions(batch)}
                     </Group>
                   </Stack>
                 </Card>
@@ -464,6 +547,31 @@ export function OcrDesktopPage() {
               setPendingDeleteId(null);
             }}
             onCancel={() => setPendingDeleteId(null)}
+          />
+
+          <AlertDialog
+            title="Seed to records?"
+            description={
+              pendingSeed
+                ? `Seed “${pendingSeed.name}” into the church record tables? This writes live sacramental data.`
+                : "Seed this OCR job into records?"
+            }
+            confirmLabel="Seed to records"
+            cancelLabel="Cancel"
+            intent="confirmation"
+            isConfirmPending={
+              pendingSeedId !== null && actionPendingId === pendingSeedId
+            }
+            isOpen={pendingSeedId !== null}
+            onOpenChange={(open) => {
+              if (!open && actionPendingId === null) setPendingSeedId(null);
+            }}
+            onConfirm={() => {
+              if (pendingSeed) runSeed(pendingSeed);
+            }}
+            onCancel={() => {
+              if (actionPendingId === null) setPendingSeedId(null);
+            }}
           />
         </Stack>
       )}
@@ -727,7 +835,9 @@ export function OcrDesktopPage() {
               </Title>
             </Group>
             <Text size="sm" c="dimmed">
-              {batchName} finished mock OCR. Live job APIs ship after Wave B session hardening.
+              {historySource === "live"
+                ? `${batchName} finished. Use history Retry/Seed for live job actions.`
+                : `${batchName} finished mock OCR. Enable live auth + church context for job APIs.`}
             </Text>
             <Group gap="sm">
               <Button className="om-btn-ghost" variant="secondary" size="sm" onAction={() => setScreen("history")}>

@@ -18,4 +18,7 @@ export type Batch = {
   readonly mode: ProcessingMode;
   readonly status: BatchStatus;
   readonly needsReview: number;
+  /** Live OCR job id when historySource is live (parity with church-scoped job APIs). */
+  readonly jobId?: string;
+  readonly reviewStatus?: string | null;
 };

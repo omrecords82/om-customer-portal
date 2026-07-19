@@ -156,6 +156,85 @@ export type WizardJobStatus =
   | "completed"
   | "failed";
 
+export type OcrJobActionResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+async function parseErrorMessage(
+  res: Response,
+  fallback: string,
+): Promise<string> {
+  const body = (await res.json().catch(() => null)) as {
+    message?: string;
+    error?: string;
+  } | null;
+  return body?.message ?? body?.error ?? fallback;
+}
+
+/**
+ * POST /api/church/:churchId/ocr/jobs/:jobId/retry
+ * Parity: legacy UploadRecords / OCR studio retry failed or reprocessable jobs.
+ */
+export async function retryChurchOcrJob(
+  churchId: number,
+  jobId: string,
+): Promise<OcrJobActionResult> {
+  if (!Number.isFinite(churchId) || churchId <= 0 || !jobId) {
+    return { ok: false, message: "Invalid church or job id.", status: 400 };
+  }
+  try {
+    const res = await apiFetch(
+      `/api/church/${String(churchId)}/ocr/jobs/${encodeURIComponent(jobId)}/retry`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: await parseErrorMessage(
+          res,
+          `OCR retry failed (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Network error retrying OCR job.", status: 0 };
+  }
+}
+
+/**
+ * POST /api/church/:churchId/ocr/jobs/:jobId/seed
+ * Parity: legacy church-scoped seed when review_status is ready_to_seed.
+ */
+export async function seedChurchOcrJob(
+  churchId: number,
+  jobId: string,
+): Promise<OcrJobActionResult> {
+  if (!Number.isFinite(churchId) || churchId <= 0 || !jobId) {
+    return { ok: false, message: "Invalid church or job id.", status: 400 };
+  }
+  try {
+    const res = await apiFetch(
+      `/api/church/${String(churchId)}/ocr/jobs/${encodeURIComponent(jobId)}/seed`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: await parseErrorMessage(
+          res,
+          `OCR seed failed (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Network error seeding OCR job.", status: 0 };
+  }
+}
+
 export function mapOcrJobToWizardStatus(job: {
   readonly status: string;
   readonly review_status?: string | null;
@@ -167,4 +246,20 @@ export function mapOcrJobToWizardStatus(job: {
     return "ready-for-review";
   }
   return "processing";
+}
+
+/** True when history UI should offer retry (failed/error jobs). */
+export function canRetryOcrJob(job: {
+  readonly status: string;
+  readonly review_status?: string | null;
+}): boolean {
+  const status = job.status.toLowerCase();
+  return status === "failed" || status === "error";
+}
+
+/** True when a live job is eligible for seed API. */
+export function canSeedOcrJob(job: {
+  readonly review_status?: string | null;
+}): boolean {
+  return job.review_status === "ready_to_seed";
 }

@@ -267,9 +267,9 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** `/portal` hub, ChurchPortalHub, theme hubs (legacy).  
 **Work ref:** `PORTAL-WAVE-D-HUB`
 
-- [ ] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K**
+- [x] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K** — evidence: `HomePage.tsx` honest empties (no fake KPI/activity as-if-live); live hub APIs still open
 - [x] Hub actions/menus via `@om/ui` (quick actions on home; rich menus may use temporary RAC adapters per §2.2)
-- [ ] Empty/onboarding hub states
+- [x] Empty/onboarding hub states — evidence: `HomePage.tsx` empty activity + calendar panels with explicit preview/live notes
 - [x] Help / guide / site-map pages in new app
 - [x] Nav config single-sourced (routes, titles, icons, permissions) — permissions TBD with live roles
 
@@ -335,7 +335,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
 - [x] Camera / file picker / permission-denied / offline-ish empty states — mock connect modes present
 - [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
-- [x] Wire **live** OCR job history API when `AUTH_MODE=live` + church context (`ocrApi.ts`); upload/seed still mock until next pass
+- [x] Wire **live** OCR job history + upload + **retry/seed** when `AUTH_MODE=live` + church context (`ocrApi.ts`: `fetchChurchOcrJobs`, `uploadOcrJobPages`, `retryChurchOcrJob`, `seedChurchOcrJob`); desktop history actions wired
 - [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)
@@ -343,7 +343,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
 - [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
 - [x] Job history list + filters; batch actions with AlertDialog confirms
-- [ ] Integrate with existing OM OCR job APIs for **retry/seed** (history + upload live when auth live)
+- [x] Integrate with existing OM OCR job APIs for **retry/seed** (history + upload live when auth live) — evidence: `ocrApi.ts` + `OcrDesktopPage` Retry/Seed; routes `POST /api/church/:id/ocr/jobs/:jobId/{retry,seed}`
 - [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 
 #### BP-3 — OM Onboard (full implementation)
@@ -407,7 +407,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Adopt BP-1 + BP-2 as the OCR routes (mobile + desktop); remove placeholder OCR page
 - [ ] **Assets library** browse/collections + AlertDialog confirms — **DEFERRED PRIORITY** (behind live auth, OCR APIs, records deep links, Wave H path, cemetery MVP, live certificates). Raise only if an active customer depends on it for routine operations. **Not a current program blocker.**
 - [x] Certificates: list, generate form chrome, history table; designer canvas app-owned
-- [ ] Live certificate generation + history where currently customer-used (**required before Wave K** where applicable)
+- [ ] Live certificate generation + history where currently customer-used (**required before Wave K** where applicable) — **seam stubs** shipped: `certificatesApi.ts` (`fetchCertificateHistory`, `startCertificateDraft`); full render/studio still open
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
