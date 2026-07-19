@@ -26,6 +26,7 @@ import {
   updateUserProfile,
 } from "../settings/settingsApi";
 import { MOCK_USER_SESSIONS, type UserSession } from "../settings/settingsData";
+import { useOnboardingAction } from "../onboard/useOnboardingAction";
 
 type SessionConfirm = {
   readonly title: string;
@@ -38,6 +39,7 @@ export function AccountPage() {
   const { source: parishSource, loading: parishLoading, error: parishError } =
     useParishProfile();
   const live = authMode === "live";
+  const onboarding = useOnboardingAction();
 
   const pilotDiagnostics = useMemo(
     () =>
@@ -414,7 +416,12 @@ export function AccountPage() {
                 <Link to="/settings/preferences">OCR & notification preferences</Link>
               </List.Item>
               <List.Item>
-                <Link to="/onboarding">Portal onboarding checklist</Link>
+                <Link to={onboarding.cta.href}>{onboarding.cta.label}</Link>
+                {onboarding.cta.pending ? (
+                  <Text size="xs" c="dimmed" mt={4}>
+                    {onboarding.cta.stepNote}
+                  </Text>
+                ) : null}
               </List.Item>
             </List>
           </Stack>

@@ -28,6 +28,7 @@ import {
   fetchOnboardingMeSlice,
   resolveFirstLoginWizardPath,
 } from "./onboardWizardApi";
+import { buildOnboardingCta } from "./onboardPresentation";
 
 const LIVE_POLL_MS = 8_000;
 
@@ -155,6 +156,8 @@ export function OnboardPage() {
     return Math.round((completedCount / steps.length) * 100);
   }, [completedCount, steps.length]);
 
+  const wizardCta = useMemo(() => buildOnboardingCta(wizardPath), [wizardPath]);
+
   const cardBg =
     colorScheme === "dark" ? "var(--mantine-color-dark-6)" : "var(--mantine-color-body)";
 
@@ -182,16 +185,14 @@ export function OnboardPage() {
           {wizardPath ? (
             <Alert variant="light" color="gold" w="100%">
               <Stack gap="sm">
-                <Text size="sm">
-                  First-login setup is still required: password, record tables, and record layouts.
-                </Text>
+                <Text size="sm">{wizardCta.stepNote}</Text>
                 <Button
                   variant="primary"
                   onAction={() => {
-                    void navigate(wizardPath);
+                    void navigate(wizardCta.href);
                   }}
                 >
-                  Continue first-login setup
+                  {wizardCta.label}
                 </Button>
               </Stack>
             </Alert>

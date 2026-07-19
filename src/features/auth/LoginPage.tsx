@@ -1,13 +1,45 @@
-import { Card, Stack, Text } from "@mantine/core";
+import { Card, Loader, Stack, Text } from "@mantine/core";
 import { Button } from "@om/ui/button";
 import { Checkbox } from "@om/ui/checkbox";
 import { TextField } from "@om/ui/text-field";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { getSafePortalNext } from "../../auth/safeNext";
+import { fetchAuthenticatedDestination } from "../onboard/onboardPresentation";
 import { AuthLayout } from "./AuthLayout";
+
+function AuthenticatedLoginRedirect({ nextPath }: { readonly nextPath: string }) {
+  const [dest, setDest] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAuthenticatedDestination(nextPath).then((resolved) => {
+      if (!cancelled) setDest(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [nextPath]);
+
+  if (dest === null) {
+    return (
+      <AuthLayout title="Sign in" description="Checking onboarding status…">
+        <Card padding="lg">
+          <Stack align="center" gap="sm">
+            <Loader size="sm" aria-label="Loading" />
+            <Text size="sm" c="dimmed">
+              Redirecting…
+            </Text>
+          </Stack>
+        </Card>
+      </AuthLayout>
+    );
+  }
+
+  return <Navigate to={dest} replace />;
+}
 
 export function LoginPage() {
   const { login, isAuthenticated, ready } = useAuth();
@@ -24,7 +56,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
 
   if (ready && isAuthenticated) {
-    return <Navigate to={nextPath} replace />;
+    return <AuthenticatedLoginRedirect nextPath={nextPath} />;
   }
 
   async function onSubmit(event: React.SyntheticEvent) {
@@ -57,7 +89,8 @@ export function LoginPage() {
       );
 
       if (result.kind === "authenticated") {
-        void navigate(nextPath, { replace: true });
+        const dest = await fetchAuthenticatedDestination(nextPath);
+        void navigate(dest, { replace: true });
         return;
       }
       if (result.kind === "redirect") {

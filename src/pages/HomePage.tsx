@@ -33,6 +33,7 @@ import {
   hubDashboardSlice,
   type HubSecondaryModule,
 } from "../features/hub/hubPresentation";
+import { useOnboardingAction } from "../features/onboard/useOnboardingAction";
 
 /**
  * Hub honesty (Wave D): show live KPIs/activity when AUTH_MODE=live + churchId;
@@ -325,6 +326,7 @@ export function HomePage() {
   const liveSession = authMode === "live" && user?.churchId != null;
   const hub = useHubDashboard(user?.churchId);
   const cemeteryEnabled = resolveCemeteryFlags().enabled;
+  const onboarding = useOnboardingAction();
 
   const loading = hub.status === "loading";
   const dashboard = hubDashboardSlice(hub);
@@ -388,13 +390,14 @@ export function HomePage() {
             Start OCR batch
           </Button>
           <Button
-            className="om-btn-ghost"
-            variant="secondary"
+            className={onboarding.cta.pending ? "om-btn-primary" : "om-btn-ghost"}
+            variant={onboarding.cta.pending ? "primary" : "secondary"}
+            accessibleLabel={onboarding.cta.label}
             onAction={() => {
-              void navigate("/onboarding");
+              void navigate(onboarding.cta.href);
             }}
           >
-            Continue onboarding
+            {onboarding.cta.label}
           </Button>
           <Button
             className="om-btn-ghost"

@@ -7,7 +7,7 @@ import { extractApiMessage } from "../settings/settingsApi";
  * Parity: legacy enrollment provisioning checklist + first-login `/api/onboarding/me`
  *   - GET /api/onboarding/me — first-login status (password, record tables/layouts)
  *   - GET /api/onboarding/provisioning-checklist — six-step parish preparation checklist
- * Admin checklist writers remain at `/api/admin/onboarding/:id/checklist/*`.
+ * Admin checklist writers remain at `/api/admin/onboarding/:id/checklist/*` (no parish writeback).
  */
 
 export type OnboardStepStatus =

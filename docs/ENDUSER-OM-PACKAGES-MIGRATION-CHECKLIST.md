@@ -522,6 +522,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Adopt BP-3 (`om-onboard`) as the primary parish preparation / onboarding surface
 - [x] Record-tables / record-layouts onboarding steps (beyond blueprint if still required) — evidence: `/onboarding/change-password`, `/onboarding/record-tables`, `/onboarding/record-layouts` + `onboardWizardApi.ts` (live OM APIs; preview local persistence)
 - [x] Persist onboarding progress (live APIs) — **required before Wave K** — evidence: `onboardApi.ts` reads live checklist + `/me`; OM backend `GET /api/onboarding/provisioning-checklist` (read-only parish user)
+- [x] Wave I extras — post-login wizard redirect (`LoginPage` + `fetchAuthenticatedDestination`), Account/hub deep-link CTAs (`useOnboardingAction` + `onboardPresentation.ts`); provisioning checklist parish writeback **not available** (admin APIs only; honest read-only)
 - [x] Public `/enroll` **explicitly excluded** from Customer Portal scope (handled outside this app)
 
 **Dependencies:** Wave BP-3; Waves B, C, forms patterns.  
@@ -670,7 +671,7 @@ All must be true for **global** readiness (Wave K). Pilot live auth may proceed 
 9. **Wave F** — Live certificates (where used); **assets deferred**  
 10. **Wave G** — Cemetery read-oriented MVP for enabled churches; metrics; liturgical calendar **post-MVP**  
 11. **Record schema contract** then **Wave H** editors **only after all entry gates** (Baptism → Marriage → Funeral)  
-12. **Wave I** — Authenticated onboarding extras / persisted progress (adopt BP-3); **no public enroll**  
+12. **Wave I** — ~~Authenticated onboarding extras / persisted progress (adopt BP-3)~~ **closed** (2026-07-19); **no public enroll**  
 13. **Wave J** — Brand tokens / icons / liturgical tokens as needed (**post-MVP OK**)  
 14. **Wave K** — Cutover & legacy retirement when Go/No-Go evidence is complete  
 15. **DoD sign-off**
