@@ -27,6 +27,12 @@ const gold: MantineColorsTuple = [
   "#3e3000",
 ];
 
+/**
+ * Mantine remains the layout/presentation adapter.
+ * Where `@om/tokens` already exposes an equivalent primitive, theme values
+ * reference those CSS variables. Brand navy/gold and display typography stay
+ * Portal-local until matching OM tokens exist.
+ */
 export const portalTheme = createTheme({
   fontFamily:
     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -50,14 +56,16 @@ export const portalTheme = createTheme({
   spacing: {
     xs: rem(6),
     sm: rem(10),
-    md: rem(16),
+    // Matches `--om-primitive-space-4` (1rem).
+    md: "var(--om-primitive-space-4)",
     lg: rem(24),
     xl: rem(32),
   },
 
   radius: {
     xs: rem(2),
-    sm: rem(4),
+    // Matches `--om-primitive-radius-2` (0.25rem / 4px).
+    sm: "var(--om-primitive-radius-2)",
     md: rem(6),
     lg: rem(8),
     xl: rem(12),

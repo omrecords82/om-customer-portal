@@ -6,7 +6,7 @@ export function PortalFooter() {
     <Box
       component="footer"
       style={{
-        borderTop: "1px solid var(--mantine-color-default-border)",
+        borderTop: "1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border))",
         background: "var(--mantine-color-body)",
         flexShrink: 0,
       }}

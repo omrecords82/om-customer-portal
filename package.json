@@ -19,6 +19,9 @@
   "dependencies": {
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
+    "@om/contracts": "npm:@omrecords82/contracts@0.1.0",
+    "@om/tokens": "npm:@omrecords82/tokens@0.1.0",
+    "@om/ui": "npm:@omrecords82/ui@0.1.0",
     "lucide-react": "0.487.0",
     "react": "19.2.0",
     "react-aria-components": "^1.19.0",

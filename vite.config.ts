@@ -38,7 +38,7 @@ function figmaAssetResolver() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const basePath = normalizeBasePath(
-    env.VITE_PORTAL_BASE_PATH ?? "/portal",
+    env.VITE_PORTAL_BASE_PATH ?? "/portal2",
   );
 
   return {

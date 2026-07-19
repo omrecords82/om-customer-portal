@@ -1,5 +1,5 @@
 import { Box, Card, SimpleGrid, Stack, Text, Title, Group, Divider } from "@mantine/core";
-import { Button } from "react-aria-components";
+import { Button } from "@om/ui/button";
 import {
   Plus,
   Users,
@@ -214,7 +214,12 @@ function EmptyStatePanel() {
       <Text size="xs" c="dimmed" style={{ maxWidth: 240 }} mb="md">
         Add events to the parish calendar to see them here.
       </Text>
-      <Button className="om-btn-ghost" aria-label="Go to parish calendar">
+      <Button
+        className="om-btn-ghost"
+        variant="secondary"
+        size="sm"
+        accessibleLabel="Go to parish calendar"
+      >
         Open Calendar
       </Button>
     </Card>
@@ -225,7 +230,12 @@ function EmptyStatePanel() {
 
 export function HomePage() {
   const primaryAction = (
-    <Button className="om-btn-primary" aria-label="Add a new record">
+    <Button
+      className="om-btn-primary"
+      variant="primary"
+      size="sm"
+      accessibleLabel="Add a new record"
+    >
       <Plus size={14} aria-hidden="true" />
       New Record
     </Button>

@@ -1,10 +1,10 @@
 /* ── Portal-specific styles ──────────────────────────────────────────────────
-   Provides base styles for React Aria Components (which are unstyled)
-   and portal-level overrides. Uses Mantine's CSS variables so all
-   surfaces automatically adapt to light / dark color scheme.
+   Overrides for @om/ui controls and remaining React Aria surfaces.
+   Portal CSS loads after Mantine, @om/tokens, and @om/ui so unlayered rules
+   preserve the existing Customer Portal look on top of OM component defaults.
    ─────────────────────────────────────────────────────────────────────────── */
 
-/* ── Sidebar navigation links (RAC Link) ─────────────────────────────────── */
+/* ── Sidebar navigation links (RAC Link — @om/ui Link lacks onPress/aria-current) */
 
 .om-sidebar-link {
   display: flex;
@@ -43,18 +43,21 @@
 }
 
 .om-sidebar-link[data-focus-visible] {
-  outline: 2px solid var(--om-sidebar-accent);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--om-sidebar-accent));
   outline-offset: -2px;
 }
 
-/* ── Header icon buttons (RAC Button) ────────────────────────────────────── */
+/* ── Header icon buttons (@om/ui IconButton + portal sizing override) ─────── */
 
+.om-header-icon-btn.om-button,
 .om-header-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
+  min-height: 34px;
+  padding: 0;
   background: transparent;
   border: none;
   border-radius: var(--mantine-radius-sm);
@@ -65,18 +68,20 @@
   flex-shrink: 0;
 }
 
+.om-header-icon-btn.om-button[data-hovered]:not([data-disabled], [data-om-pending]),
 .om-header-icon-btn[data-hovered],
 .om-header-icon-btn:hover {
   background: var(--mantine-color-default-hover);
   color: var(--mantine-color-text);
 }
 
+.om-header-icon-btn.om-button[data-focus-visible],
 .om-header-icon-btn[data-focus-visible] {
-  outline: 2px solid var(--mantine-primary-color-filled);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--mantine-primary-color-filled));
   outline-offset: 2px;
 }
 
-/* ── Header user account button (RAC Button) ─────────────────────────────── */
+/* ── Header user account button (RAC Button — custom composite trigger) ──── */
 
 .om-user-btn {
   display: inline-flex;
@@ -99,17 +104,19 @@
 }
 
 .om-user-btn[data-focus-visible] {
-  outline: 2px solid var(--mantine-primary-color-filled);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--mantine-primary-color-filled));
   outline-offset: 2px;
 }
 
-/* ── Primary action button (RAC Button) ──────────────────────────────────── */
+/* ── Primary action button (@om/ui Button + portal brand override) ────────── */
 
+.om-btn-primary.om-button,
 .om-btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  min-height: unset;
   background: var(--mantine-color-navy-7);
   color: var(--mantine-color-white);
   border: none;
@@ -124,26 +131,30 @@
   line-height: 1.4;
 }
 
+.om-btn-primary.om-button[data-hovered]:not([data-disabled], [data-om-pending]),
 .om-btn-primary[data-hovered],
 .om-btn-primary:hover {
   background: var(--mantine-color-navy-8);
 }
 
+.om-btn-primary.om-button[data-focus-visible],
 .om-btn-primary[data-focus-visible] {
   outline: 2px solid var(--mantine-color-gold-5);
   outline-offset: 2px;
 }
 
-/* ── Ghost / secondary button (RAC Button) ───────────────────────────────── */
+/* ── Ghost / secondary button (@om/ui Button + portal override) ───────────── */
 
+.om-btn-ghost.om-button,
 .om-btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  min-height: unset;
   background: transparent;
   color: var(--mantine-color-text);
-  border: 1px solid var(--mantine-color-default-border);
+  border: 1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border));
   border-radius: var(--mantine-radius-sm);
   font-size: 13.5px;
   font-weight: 500;
@@ -155,21 +166,23 @@
   line-height: 1.4;
 }
 
+.om-btn-ghost.om-button[data-hovered]:not([data-disabled], [data-om-pending]),
 .om-btn-ghost[data-hovered],
 .om-btn-ghost:hover {
   background: var(--mantine-color-default-hover);
 }
 
+.om-btn-ghost.om-button[data-focus-visible],
 .om-btn-ghost[data-focus-visible] {
-  outline: 2px solid var(--mantine-primary-color-filled);
+  outline: 2px solid var(--om-semantic-focus-ring, var(--mantine-primary-color-filled));
   outline-offset: 2px;
 }
 
-/* ── Menu popover surface (RAC Popover) ──────────────────────────────────── */
+/* ── Menu popover surface (RAC Popover — @om/ui Menu lacks item icons) ────── */
 
 .om-menu-popover {
   background: var(--mantine-color-body);
-  border: 1px solid var(--mantine-color-default-border);
+  border: 1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border));
   border-radius: var(--mantine-radius-md);
   box-shadow: var(--mantine-shadow-md);
   min-width: 192px;
@@ -217,14 +230,12 @@
 
 .om-menu-sep {
   border: none;
-  border-top: 1px solid var(--mantine-color-default-border);
+  border-top: 1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border));
   margin: 4px 7px;
 }
 
 /* ── Responsive utilities ────────────────────────────────────────────────── */
 
-/* Hide hamburger on large desktop; Mantine's hiddenFrom="lg" handles this */
-/* but we reinforce with a portal-level rule for safety */
 @media (min-width: 1200px) {
   .om-hide-lg {
     display: none !important;

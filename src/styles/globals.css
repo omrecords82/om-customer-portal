@@ -2,6 +2,7 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
+  /* Portal-local sidebar palette — no matching @om/tokens navy/gold/sidebar surface yet */
   --om-sidebar-bg: var(--mantine-color-navy-7);
   --om-sidebar-border: rgba(255, 255, 255, 0.09);
   --om-sidebar-surface: rgba(255, 255, 255, 0.11);

@@ -14,7 +14,7 @@ export function normalizePortalBasePath(value: string): string {
 
 function readPortalBasePathEnv(): string {
   const value = import.meta.env.VITE_PORTAL_BASE_PATH;
-  return typeof value === "string" ? value : "/portal";
+  return typeof value === "string" ? value : "/portal2";
 }
 
 export const portalBasePath = normalizePortalBasePath(readPortalBasePathEnv());

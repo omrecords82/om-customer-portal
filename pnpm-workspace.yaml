@@ -15,3 +15,8 @@ onlyBuiltDependencies:
 
 allowBuilds:
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@omrecords82/contracts@0.1.0'
+  - '@omrecords82/tokens@0.1.0'
+  - '@omrecords82/ui@0.1.0'

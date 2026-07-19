@@ -1,4 +1,6 @@
 import "@mantine/core/styles.css";
+import "@om/tokens/css";
+import "@om/ui/css";
 import "../styles/portal.css";
 
 import { MantineProvider } from "@mantine/core";
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { portalTheme } from "../theme/theme";
+import { OmThemeSync } from "../theme/OmThemeSync";
 import { PortalShell } from "../shell/PortalShell";
 import { HomePage } from "../pages/HomePage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
@@ -110,6 +113,7 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <MantineProvider theme={portalTheme} defaultColorScheme="light">
+      <OmThemeSync />
       <RouterProvider router={router} />
     </MantineProvider>
   );

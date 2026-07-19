@@ -10,9 +10,9 @@ describe("normalizePortalBasePath", () => {
   });
 
   it("normalizes leading and trailing slashes", () => {
-    expect(normalizePortalBasePath("portal")).toBe("/portal");
-    expect(normalizePortalBasePath("/portal")).toBe("/portal");
-    expect(normalizePortalBasePath("/portal/")).toBe("/portal");
-    expect(normalizePortalBasePath("  /portal/  ")).toBe("/portal");
+    expect(normalizePortalBasePath("portal2")).toBe("/portal2");
+    expect(normalizePortalBasePath("/portal2")).toBe("/portal2");
+    expect(normalizePortalBasePath("/portal2/")).toBe("/portal2");
+    expect(normalizePortalBasePath("  /portal2/  ")).toBe("/portal2");
   });
 });

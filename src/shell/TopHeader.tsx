@@ -1,13 +1,14 @@
 import { Box, Group, Text } from "@mantine/core";
 import { useMantineColorScheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
+import { IconButton } from "@om/ui/icon-button";
 import {
-  Button,
   MenuTrigger,
   Menu,
   MenuItem,
   Popover,
   Separator,
+  Button,
 } from "react-aria-components";
 import { useLocation } from "react-router";
 import { Menu as MenuIcon, Sun, Moon, ChevronDown, User, Settings, LogOut } from "lucide-react";
@@ -49,18 +50,19 @@ export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
       px="md"
       justify="space-between"
       wrap="nowrap"
-      style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}
+      style={{ borderBottom: "1px solid var(--om-semantic-border-decorative, var(--mantine-color-default-border))" }}
     >
       {/* Left: burger (hidden on lg+) + page context */}
       <Group gap="sm" wrap="nowrap">
         <Box hiddenFrom="lg">
-          <Button
+          <IconButton
             className="om-header-icon-btn"
-            aria-label="Toggle navigation"
-            onPress={handleBurgerPress}
-          >
-            <MenuIcon size={18} aria-hidden="true" />
-          </Button>
+            variant="quiet"
+            size="sm"
+            accessibleLabel="Toggle navigation"
+            icon={<MenuIcon size={18} aria-hidden="true" />}
+            onAction={handleBurgerPress}
+          />
         </Box>
         {pageTitle && (
           <Text size="sm" fw={500} visibleFrom="sm" style={{ lineHeight: 1 }}>
@@ -71,19 +73,24 @@ export function TopHeader({ onMobileToggle, onDesktopToggle }: TopHeaderProps) {
 
       {/* Right: color scheme toggle + user account */}
       <Group gap={4} wrap="nowrap">
-        <Button
+        <IconButton
           className="om-header-icon-btn"
-          aria-label={
+          variant="quiet"
+          size="sm"
+          accessibleLabel={
             colorScheme === "dark" ? "Switch to light mode" : "Switch to dark mode"
           }
-          onPress={() => toggleColorScheme()}
-        >
-          {colorScheme === "dark" ? (
-            <Sun size={16} aria-hidden="true" />
-          ) : (
-            <Moon size={16} aria-hidden="true" />
-          )}
-        </Button>
+          icon={
+            colorScheme === "dark" ? (
+              <Sun size={16} aria-hidden="true" />
+            ) : (
+              <Moon size={16} aria-hidden="true" />
+            )
+          }
+          onAction={() => {
+            toggleColorScheme();
+          }}
+        />
 
         <MenuTrigger>
           <Button className="om-user-btn" aria-label="Account menu">
