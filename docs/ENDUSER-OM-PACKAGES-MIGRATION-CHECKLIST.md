@@ -282,9 +282,9 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Parity reference:** `/portal/records`, records-management toolbars.
 
-- [ ] Records landing + type filters/search using TextField/Select/ComboBox
-- [ ] Add / more actions via Button/Menu/AlertDialog
-- [ ] Mobile-friendly list/card chrome
+- [x] Records landing + type filters/search using TextField/Select/ComboBox (Mantine TextInput/Select + @om/ui actions)
+- [x] Add / more actions via Button/Menu/AlertDialog (Add button + destructive delete confirm)
+- [x] Mobile-friendly list/card chrome
 - [ ] Deep-link compatibility plan for legacy `/portal/records?type=` URLs at cutover
 
 **Do not start:** sacramental field editors / AG Grid cell editing (Wave H).
@@ -300,9 +300,9 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Parity reference:** `/portal/assets`, `/portal/certificates/*`; OCR via blueprints (Wave BP).
 
-- [ ] Adopt BP-1 + BP-2 as the OCR routes (mobile + desktop); remove placeholder OCR page
+- [x] Adopt BP-1 + BP-2 as the OCR routes (mobile + desktop); remove placeholder OCR page
 - [ ] Assets library browse/collections + AlertDialog confirms
-- [ ] Certificates: list, generate form chrome, history table; designer canvas app-owned
+- [x] Certificates: list, generate form chrome, history table; designer canvas app-owned
 - [ ] Interactive reports recipient flows if parish-facing
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
