@@ -468,19 +468,19 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 **Work ref:** `PORTAL-WAVE-H-EDITORS`
 
-**Operator authorization (2026-07-19): Wave H editors remain blocked until Baptism editor is authorized** — `@omrecords82/contracts@0.2.0` **published and pinned** in portal; consumption gate closed (`docs/WAVE-H-RECORDS-GATES.md` §4). Dual-run flags default off.
+**Operator authorization (2026-07-19): Baptism editor authorized and shipped** — `@omrecords82/contracts@0.2.0` consumed; `BaptismEditorPage` + API/mappers + tests; live `/portal2` deploy sets `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true` (marriage/funeral flags stay false). Marriage/funeral editors not started.
 
 #### Wave H entry gates (all must pass before any editor work)
 
 - [x] Live authentication and church context work for pilot users — **closed 2026-07-19** for sole pilot **`om_church_46`** (church **46**): all interactive verification rows confirmed on live `/portal2` (parish settings post `f1aeb2d37`, nested `next=` round-trip, live records list). **Rollback rehearse waived** by operator (not rehearsed; production stays `AUTH_MODE=live` + `REQUIRE_AUTH=true` on `/portal2`; legacy `/portal` untouched) — `docs/AUTH-PILOT-CHECKLIST.md`
-- [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`. **Editors still blocked.**
+- [x] Real records-list APIs work in the Customer Portal — evidence: `recordsApi.ts` + `RecordsPage` wire `GET /api/baptism-records`, `GET /api/marriage-records`, `GET /api/funeral-records` (church_id, page, limit, search) when `AUTH_MODE=live` + churchId; honest mock/empty when preview or API fails; `?type=` deep-link contract preserved; chrismation list API not yet available (honest empty); combined all-types view merges three endpoints (per-type filter for full pagination); pure helpers in `recordsApi.test.ts`.
 - [x] Wave E records deep-link compatibility is implemented and tested
 - [x] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts` — **closed 2026-07-19** (source + publish `@omrecords82/contracts@0.2.0`, portal pin bumped) — `docs/WAVE-H-RECORDS-GATES.md` §4
 - [x] Read / create / update / delete permission rules are documented — evidence: `docs/WAVE-H-RECORDS-GATES.md` §1 (OM roles + portal list enforcement + Wave H editor targets)
 - [x] Tenant-isolation tests exist — evidence: `recordsApi.test.ts` (`buildRecordsListUrl`, live fetch guardrails, single `church_id` across list endpoints); portal uses session `user.churchId` only (not URL `?churchId=`) — `docs/WAVE-H-RECORDS-GATES.md` §2
 - [x] Clergy, location, and related-record selection behavior is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §5 (`GET /api/lookup/clergy`, `/api/lookup/locations`, church-scoped search)
 - [x] Dual-run or rollback behavior against legacy editors is defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §6 (per-type feature flags, legacy `/portal` fallback, deploy rollback)
-- [x] Portal dual-run flag plumbing (defaults off, no editor UI) — evidence: `recordsEditorFlags.ts` + `recordsEditorFlags.test.ts` (`VITE_PORTAL_RECORDS_EDITOR_*`, readiness gates, pilot conflict guard); `RecordsPage` gate note via `describeRecordsEditorGateStatus`
+- [x] Portal dual-run flag plumbing — evidence: `recordsEditorFlags.ts` + tests; **Baptism editor UI shipped** (`BaptismEditorPage`, `canNavigateToRecordsEditor`, `RECORDS_EDITOR_UI_SHIPPED.baptism=true`); live `/portal2` pilot enables baptism flag only
 - [x] Audit-logging requirements are defined — evidence: `docs/WAVE-H-RECORDS-GATES.md` §3 (`writeSacramentHistory`, `/:id/history`; no fake client audit; list reads not audited server-side today)
 
 **When authorized, implement in order — do not build all three simultaneously:**
@@ -492,11 +492,10 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 #### Implementation checklist (only after gates)
 
 - [x] Canonical record schema via `@om/contracts` — **consumed** `@omrecords82/contracts@0.2.0` in portal (`package.json` + lockfile)
-- [ ] Baptism entry & edit flow on `@om/ui` + forms patterns
+- [x] Baptism entry & edit flow on `@om/ui` + forms patterns — evidence: `BaptismEditorPage.tsx`, `baptismEditorApi.ts`, `baptismEditorMappers.ts` + tests; `@om/contracts` parsers; `POST/PUT/GET /api/baptism-records`; clergy/location lookups; `RecordsPage` row click / New baptism / `?recordId=`; routes in `App.tsx`; dual-run on `/portal2` with `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true`
 - [ ] Marriage entry & edit flow (reuse baptism pattern)
 - [ ] Funeral entry & edit flow (reuse baptism pattern)
-- [ ] Drawer/Dialog edit hosts; wire `canNavigateToRecordsEditor` when editor UI ships (dual-run flags ready in `recordsEditorFlags.ts`)
-- [ ] Tenant isolation tests mandatory
+- [ ] Delete flow + record history panel (optional Wave H stretch)
 
 **Dependencies:** Wave E deep links done; schema contract; live auth/church context; docs for permissions/audit/dual-run.  
 **Do not start early.** Highest regression risk in the program.

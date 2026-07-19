@@ -28,6 +28,7 @@ import { ParishUsersPage } from "../features/settings/ParishUsersPage";
 import { PreferencesPage } from "../features/settings/PreferencesPage";
 import { HelpPage } from "../features/help/HelpPage";
 import { RecordsPage } from "../features/records/RecordsPage";
+import { BaptismEditorPage } from "../features/records/BaptismEditorPage";
 import { CertificatesPage } from "../features/certificates/CertificatesPage";
 import { CemeteryPage } from "../features/cemetery/CemeteryPage";
 import { MetricsPage } from "../features/metrics/MetricsPage";
@@ -77,6 +78,8 @@ const router = createBrowserRouter(
       children: [
         { index: true, element: <HomePage /> },
         { path: "records", element: <RecordsPage /> },
+        { path: "records/baptism/new", element: <BaptismEditorPage /> },
+        { path: "records/baptism/:recordId/edit", element: <BaptismEditorPage /> },
         { path: "ocr", element: <OcrDesktopPage /> },
         { path: "ocr/mobile", element: <OcrMobilePage /> },
         { path: "metrics", element: <MetricsPage /> },

@@ -88,7 +88,9 @@ Vitest: `src/features/records/recordsApi.test.ts` — section **“tenant isolat
 | GitHub Packages publish | **Done** — `@omrecords82/contracts@0.2.0` on GitHub Packages (`om-packages` main `394e541`, `node scripts/publish-github-packages.mjs`) |
 | Portal list model | App-owned `SacramentalRecord` in `recordsData.ts` + row mappers in `recordsApi.ts`; `@om/contracts@0.2.0` available for Wave H editor wiring |
 
-**Gate status (2026-07-19):** **Closed** — schemas published (`@omrecords82/contracts@0.2.0`), portal pin bumped, `pnpm install` verified. **Consumption gate closed.** Wave H **editors are not auto-started** — await operator authorization for **Baptism editor** first (dual-run flags remain default off).
+**Gate status (2026-07-19):** **Closed** — schemas published (`@omrecords82/contracts@0.2.0`), portal pin bumped, `pnpm install` verified. **Consumption gate closed.**
+
+**Baptism editor (2026-07-19):** **Authorized and shipped** — `BaptismEditorPage`, `baptismEditorApi.ts`, `baptismEditorMappers.ts`; routes `/records/baptism/new` and `/records/baptism/:id/edit`; `RECORDS_EDITOR_UI_SHIPPED.baptism=true`; live `/portal2` deploy sets `VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true` (marriage/funeral flags remain false). Marriage/funeral editors follow Baptism pattern when authorized.
 
 **Schema exports (0.2.0):** `parseBaptismRecordCreate|Update`, `parseMarriageRecordCreate|Update`, `parseFuneralRecordCreate|Update`, list query/response parsers, `SACRAMENT_RECORD_STATUSES`, `CURRENT_RECORDS_SCHEMA_VERSION`.
 
@@ -122,7 +124,7 @@ Free-text entry remains allowed where legacy editors allow it; canonical entitie
 3. **Parity checks:** create → list appears → edit → history entry → delete (where allowed) on same `church_id`.
 4. **Order:** Baptism editor first; marriage/funeral reuse pattern — **do not enable more than one flag at a time** (`hasDualRunPilotConflict` blocks editor affordances when violated).
 
-**Portal wiring (2026-07-19):** flag module + tests shipped; `RecordsPage` shows `describeRecordsEditorGateStatus` note; editor routes/UI remain unshipped.
+**Portal wiring (2026-07-19):** flag module + tests shipped; `RecordsPage` shows `describeRecordsEditorGateStatus` note; **Baptism editor UI shipped** (`BaptismEditorPage`, list row click / New baptism / `?recordId=` deep link when flag + auth gates pass). Marriage/funeral editor routes remain unshipped.
 
 ### Rollback
 
@@ -149,4 +151,4 @@ Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
 | Dual-run or rollback defined | **Closed** — §6 + `recordsEditorFlags.ts` |
 | Audit-logging requirements defined | **Closed** — §3 |
 
-**Editors remain blocked** until operator explicitly authorizes Wave H **Baptism editor** work (publish + consumption gates are closed — §4). Marriage/funeral editors follow Baptism pattern; dual-run flags stay default off.
+**Editors:** **Baptism editor authorized and shipped (2026-07-19)** — dual-run enabled on live `/portal2` deploy (`VITE_PORTAL_RECORDS_EDITOR_BAPTISM=true`; marriage/funeral flags false). Marriage/funeral editors follow Baptism pattern when authorized.

@@ -12,6 +12,7 @@ import {
   hasDualRunPilotConflict,
   isRecordsEditorFlagEnabled,
   isRecordsEditorReady,
+  isRecordsEditorUiShipped,
   listEnabledRecordsEditorTypes,
   resolveRecordsEditorFlags,
 } from "./recordsEditorFlags";
@@ -94,11 +95,17 @@ describe("recordsEditorFlags", () => {
       churchId: 3,
       role: "church_admin",
     };
+    expect(isRecordsEditorUiShipped("baptism")).toBe(true);
+    expect(isRecordsEditorUiShipped("marriage")).toBe(false);
     expect(isRecordsEditorReady(input)).toBe(true);
-    expect(canNavigateToRecordsEditor(input)).toBe(false);
-    expect(canNavigateToRecordsEditor({ ...input, editorsUiShipped: true })).toBe(
-      true,
-    );
+    expect(canNavigateToRecordsEditor(input)).toBe(true);
+    expect(
+      canNavigateToRecordsEditor({
+        ...input,
+        type: "marriage",
+        flags: resolveRecordsEditorFlags({ envOverrides: { marriageEnabled: true } }),
+      }),
+    ).toBe(false);
   });
 
   it("builds future editor routes and legacy fallback URLs", () => {
@@ -118,7 +125,7 @@ describe("recordsEditorFlags", () => {
     const single = resolveRecordsEditorFlags({
       envOverrides: { baptismEnabled: true },
     });
-    expect(describeRecordsEditorGateStatus(single)).toContain("not shipped yet");
+    expect(describeRecordsEditorGateStatus(single)).toContain("dual-run active");
     const conflict = resolveRecordsEditorFlags({
       envOverrides: { baptismEnabled: true, funeralEnabled: true },
     });

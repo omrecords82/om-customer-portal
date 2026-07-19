@@ -13,7 +13,7 @@ import { Button } from "@om/ui/button";
 import { IconButton } from "@om/ui/icon-button";
 import { LayoutGrid, List } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
@@ -31,9 +31,13 @@ import {
   type RecordsTypeFilter,
 } from "./recordsDeepLink";
 import {
+  buildRecordsEditorRoute,
+  canNavigateToRecordsEditor,
   describeRecordsEditorGateStatus,
+  isRecordsEditorUiShipped,
   resolveRecordsEditorFlags,
 } from "./recordsEditorFlags";
+import { parseBaptismRecordId } from "./baptismEditorMappers";
 
 const TYPE_FILTER = [
   { value: "all", label: "All types" },
@@ -54,10 +58,25 @@ const PAGE_SIZE = 25;
  * Editors / create / edit / delete deferred to Wave H.
  */
 export function RecordsPage() {
+  const navigate = useNavigate();
   const { user, ready, isAuthenticated } = useAuth();
   const editorFlags = useMemo(() => resolveRecordsEditorFlags(), []);
+  const baptismEditorReady = useMemo(
+    () =>
+      canNavigateToRecordsEditor({
+        flags: editorFlags,
+        type: "baptism",
+        authMode,
+        churchId: user?.churchId ?? null,
+        role: user?.role ?? null,
+      }),
+    [editorFlags, user?.churchId, user?.role],
+  );
   const editorGateNote = useMemo(
-    () => describeRecordsEditorGateStatus(editorFlags),
+    () =>
+      describeRecordsEditorGateStatus(editorFlags, {
+        editorsUiShipped: isRecordsEditorUiShipped("baptism"),
+      }),
     [editorFlags],
   );
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,6 +181,37 @@ export function RecordsPage() {
     };
   }, [ready, isAuthenticated, liveEligible, user?.churchId, typeFilter, debouncedQuery, page]);
 
+  useEffect(() => {
+    if (!ready || !isAuthenticated || !baptismEditorReady) return;
+    if (parsed.recordId == null) return;
+    const targetType = parsed.typeFilter === "all" ? "baptism" : parsed.typeFilter;
+    if (targetType !== "baptism") return;
+
+    const numericId = parseBaptismRecordId(parsed.recordId);
+    if (numericId == null) return;
+
+    navigate(buildRecordsEditorRoute("baptism", { recordId: numericId, action: "edit" }), {
+      replace: true,
+    });
+  }, [
+    ready,
+    isAuthenticated,
+    baptismEditorReady,
+    parsed.recordId,
+    parsed.typeFilter,
+    navigate,
+  ]);
+
+  function openBaptismEditor(record: SacramentalRecord) {
+    const numericId = parseBaptismRecordId(record.id);
+    if (numericId == null) return;
+    navigate(buildRecordsEditorRoute("baptism", { recordId: numericId, action: "edit" }));
+  }
+
+  function openNewBaptism() {
+    navigate(buildRecordsEditorRoute("baptism", { action: "new" }));
+  }
+
   function updateTypeFilter(next: string | null) {
     const type: RecordsTypeFilter =
       next === "baptism" ||
@@ -212,7 +262,19 @@ export function RecordsPage() {
   return (
     <PageLayout
       title="Records"
-      description="View baptisms, marriages, chrismations, and other sacramental records. List and search are live when authenticated; sacramental editors are dual-run gated until Wave H ships."
+      description="View baptisms, marriages, chrismations, and other sacramental records. List and search are live when authenticated; baptism editor is dual-run gated when enabled."
+      action={
+        baptismEditorReady ? (
+          <Button
+            className="om-btn-primary"
+            size="sm"
+            accessibleLabel="Create new baptism record"
+            onAction={openNewBaptism}
+          >
+            New baptism
+          </Button>
+        ) : undefined
+      }
     >
       <Stack gap="md">
         <Group justify="space-between" wrap="wrap" align="flex-end">
@@ -280,7 +342,19 @@ export function RecordsPage() {
             </Table.Thead>
             <Table.Tbody>
               {filtered.map((record) => (
-                <Table.Tr key={record.id}>
+                <Table.Tr
+                  key={record.id}
+                  style={
+                    baptismEditorReady && record.type === "baptism"
+                      ? { cursor: "pointer" }
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (baptismEditorReady && record.type === "baptism") {
+                      openBaptismEditor(record);
+                    }
+                  }}
+                >
                   <Table.Td>
                     <Text size="sm" fw={500}>
                       {record.personName}
@@ -307,7 +381,20 @@ export function RecordsPage() {
         ) : (
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
             {filtered.map((record) => (
-              <Card key={record.id} padding="md">
+              <Card
+                key={record.id}
+                padding="md"
+                style={
+                  baptismEditorReady && record.type === "baptism"
+                    ? { cursor: "pointer" }
+                    : undefined
+                }
+                onClick={() => {
+                  if (baptismEditorReady && record.type === "baptism") {
+                    openBaptismEditor(record);
+                  }
+                }}
+              >
                 <Stack gap="xs">
                   <Text fw={500}>{record.personName}</Text>
                   <Group gap="xs">

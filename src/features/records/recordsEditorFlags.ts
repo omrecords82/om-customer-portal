@@ -183,10 +183,23 @@ export function buildLegacyRecordsEditorUrl(type: RecordsEditorType): string {
   return `/portal/records?type=${type}`;
 }
 
+/** Per-type editor UI shipment — baptism only for Wave H pilot (2026-07-19). */
+export const RECORDS_EDITOR_UI_SHIPPED: Readonly<Record<RecordsEditorType, boolean>> = {
+  baptism: true,
+  marriage: false,
+  funeral: false,
+};
+
+export function isRecordsEditorUiShipped(type: RecordsEditorType): boolean {
+  return RECORDS_EDITOR_UI_SHIPPED[type] === true;
+}
+
 export function canNavigateToRecordsEditor(
   input: RecordsEditorReadinessInput & { readonly editorsUiShipped?: boolean },
 ): boolean {
-  if (input.editorsUiShipped !== true) return false;
+  const uiShipped =
+    input.editorsUiShipped ?? isRecordsEditorUiShipped(input.type);
+  if (!uiShipped) return false;
   return isRecordsEditorReady(input);
 }
 
@@ -209,8 +222,9 @@ export function describeRecordsEditorGateStatus(
     return "Sacramental editors are dual-run gated (per-type env flags default off). Legacy /portal editors remain source of truth until Wave H ships.";
   }
   const label = RECORDS_EDITOR_TYPE_LABEL[type];
+  const uiShipped = opts?.editorsUiShipped ?? isRecordsEditorUiShipped(type);
 
-  if (opts?.editorsUiShipped !== true) {
+  if (!uiShipped) {
     return `${label} editor flag is on; editor UI not shipped yet — list-only until Wave H implementation. Legacy fallback: ${buildLegacyRecordsEditorUrl(type)}.`;
   }
 
