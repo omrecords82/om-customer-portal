@@ -32,22 +32,6 @@ import { VerifyEmailPage } from "../features/auth/VerifyEmailPage";
 import { AcceptInvitePage } from "../features/auth/AcceptInvitePage";
 import { AuthProvider } from "../auth/AuthProvider";
 import { RequireAuth } from "../auth/RequireAuth";
-import { getNavItem } from "../config/navConfig";
-import type { PortalHref } from "../config/navConfig";
-
-function placeholderFor(href: PortalHref) {
-  const item = getNavItem(href);
-  if (!item) {
-    throw new Error(`Missing nav config for ${href}`);
-  }
-  return (
-    <PlaceholderPage
-      title={item.title}
-      description={item.description}
-      icon={item.icon}
-    />
-  );
-}
 
 const router = createBrowserRouter(
   [
