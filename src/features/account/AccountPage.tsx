@@ -3,32 +3,76 @@ import { Button } from "@om/ui/button";
 import { Switch } from "@om/ui/switch";
 import { TextField } from "@om/ui/text-field";
 import { Dialog } from "@om/ui/dialog";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
+import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import { parish } from "../../data/session";
+import {
+  changeUserPassword,
+  fetchNotificationPrefs,
+  fetchUserProfile,
+  updateNotificationPrefs,
+  updateUserProfile,
+} from "../settings/settingsApi";
 
 export function AccountPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
+  const live = authMode === "live";
+
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(live);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingDigest, setSavingDigest] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [emailDigest, setEmailDigest] = useState(true);
+  const [digestLive, setDigestLive] = useState(false);
 
-  function resetPasswordForm() {
+  const resetPasswordForm = useCallback(() => {
     setCurrentPassword("");
     setNextPassword("");
     setConfirmPassword("");
     setError(null);
-  }
+  }, []);
 
-  function submitPasswordChange() {
+  useEffect(() => {
+    if (!live) return;
+
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external profile bootstrap
+    setLoadingProfile(true);
+    void fetchUserProfile({
+      displayName: user?.displayName ?? "",
+      email: user?.email ?? "",
+    }).then((result) => {
+      if (cancelled) return;
+      if (result.ok) {
+        setDisplayName(result.profile.displayName);
+      } else {
+        setStatus(result.message);
+      }
+      setLoadingProfile(false);
+    });
+
+    void fetchNotificationPrefs().then((result) => {
+      if (cancelled || !result.ok) return;
+      setEmailDigest(result.prefs.emailDigest);
+      setDigestLive(result.source === "live");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [live, user?.displayName, user?.email]);
+
+  async function submitPasswordChange() {
     if (!currentPassword || !nextPassword) {
       setError("Current and new passwords are required.");
       return;
@@ -41,9 +85,56 @@ export function AccountPage() {
       setError("New password must be at least 8 characters.");
       return;
     }
-    setStatus("Password change recorded locally (mock). Wire live API next.");
+
+    const result = await changeUserPassword({
+      currentPassword,
+      newPassword: nextPassword,
+      confirmPassword,
+    });
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
+    setStatus(result.message);
     setPasswordOpen(false);
     resetPasswordForm();
+  }
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    setStatus(null);
+    const result = await updateUserProfile({ displayName });
+    setSavingProfile(false);
+    if (!result.ok) {
+      setStatus(result.message);
+      return;
+    }
+    setStatus(
+      result.source === "live"
+        ? "Profile saved."
+        : "Profile saved locally (preview mode).",
+    );
+    if (result.source === "live") {
+      await refresh();
+    }
+  }
+
+  async function saveEmailDigest(next: boolean) {
+    setEmailDigest(next);
+    if (!live || !digestLive) return;
+
+    setSavingDigest(true);
+    const result = await updateNotificationPrefs({
+      emailDigest: next,
+      ocrJobAlerts: false,
+      certificateAlerts: false,
+    });
+    setSavingDigest(false);
+    if (!result.ok) {
+      setEmailDigest(!next);
+      setStatus(result.message);
+    }
   }
 
   return (
@@ -52,6 +143,13 @@ export function AccountPage() {
       description="Profile and security for your parish portal user."
     >
       <Stack gap="md" maw={640}>
+        {live ? (
+          <Text size="sm" c="dimmed">
+            Live profile and notification settings load from OM account APIs when
+            authenticated.
+          </Text>
+        ) : null}
+
         <Card padding="lg">
           <Stack gap="sm">
             <Title order={3} style={{ fontWeight: 500 }}>
@@ -61,6 +159,7 @@ export function AccountPage() {
               label="Display name"
               value={displayName}
               onValueChange={setDisplayName}
+              isDisabled={loadingProfile || savingProfile}
             />
             <Text size="sm">
               <Text span fw={500}>
@@ -75,16 +174,16 @@ export function AccountPage() {
               {user?.role ?? "—"}
             </Text>
             <Text size="sm" c="dimmed">
-              Parish: {parish.name}
+              Parish: {user?.churchId != null && live ? "from live church context" : parish.name}
             </Text>
             <Button
               className="om-btn-ghost"
               variant="secondary"
               size="sm"
               accessibleLabel="Save profile"
-              onAction={() =>
-                setStatus("Profile saved locally (mock). Persist with Wave C APIs.")
-              }
+              isDisabled={loadingProfile || savingProfile}
+              isPending={savingProfile}
+              onAction={() => void saveProfile()}
             >
               Save profile
             </Button>
@@ -96,9 +195,20 @@ export function AccountPage() {
             <Title order={3} style={{ fontWeight: 500 }}>
               Notifications
             </Title>
-            <Switch isSelected={emailDigest} onSelectionChange={setEmailDigest}>
+            <Switch
+              isSelected={emailDigest}
+              onSelectionChange={(isSelected) => void saveEmailDigest(isSelected)}
+              isDisabled={savingDigest}
+            >
               Email digest for parish activity
             </Switch>
+            <Text size="sm" c="dimmed">
+              {digestLive
+                ? "Weekly digest preference persists via /api/notifications/preferences."
+                : live
+                  ? "Could not load live digest preference; using local toggle."
+                  : "Preview mode — digest toggle is local only."}
+            </Text>
             <Text size="sm">
               More notification controls live under{" "}
               <Link to="/settings/preferences">Preferences</Link>.
@@ -189,14 +299,15 @@ export function AccountPage() {
                   className="om-btn-primary"
                   size="sm"
                   accessibleLabel="Save new password"
-                  onAction={submitPasswordChange}
+                  onAction={() => void submitPasswordChange()}
                 >
                   Save password
                 </Button>
               </Stack>
             </Dialog>
             <Text size="sm" c="dimmed">
-              Active sessions list / revoke-other-devices arrives with live auth APIs.
+              Active sessions list / revoke-other-devices arrives with live auth
+              session APIs.
             </Text>
           </Stack>
         </Card>

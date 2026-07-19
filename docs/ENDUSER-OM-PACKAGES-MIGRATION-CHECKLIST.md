@@ -232,7 +232,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
 - [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
 - [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) per tenant
-- [x] Account password change dialog + profile surface exist; sessions list / live password API still open
+- [x] Account password change dialog + profile surface exist; sessions list / live password API still open — evidence: `AccountPage` PUT `/api/user/profile/password` when live; GET/DELETE `/api/user/sessions` still open
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events
 - [x] SPA shell links via **approved temporary** basename-aware RAC adapters (see §2.2 waivers) until GAP-LINK-* closes — document in `docs/om-package-integration.md`; do not invent fake `@om/ui` wrappers
 
@@ -250,14 +250,14 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** `/account/*`, `parish-management/*` (legacy).  
 **Work ref:** `PORTAL-WAVE-C-SETTINGS`
 
-- [x] Profile / personal info / notifications (mock save; **live persistence required before Wave K**)
-- [x] Parish info / church details (read + edit mock; **live persistence required before Wave K**)
-- [x] Branding / OCR prefs (controls only; heavy editors later)
-- [x] Parish users list (semantic `@om/ui/table` + mock rows)
+- [x] Profile / personal info / notifications — evidence: `settingsApi.ts` + `AccountPage` wire GET/PUT `/api/user/profile`, PUT `/api/user/profile/password`, GET/PUT `/api/notifications/preferences` (`weekly_digest`, `certificate_ready`) when `AUTH_MODE=live`; preview keeps honest local messaging
+- [x] Parish info / church details — evidence: `ParishSettingsPage` + `settingsApi.ts` wire GET/PUT `/api/my/church-settings` when live + church context; role-gated edit (`church_admin`, `priest`, etc.)
+- [x] Branding / OCR prefs (controls only; heavy editors later) — OCR simplified toggles remain preview-only (honest copy); full `/api/my/ocr-preferences` schema deferred
+- [ ] Parish users list (semantic `@om/ui/table` + mock rows) — invite/revoke still mock; no parish-facing user admin API in scope
 - [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard / Wave I
 
 **Dependencies:** Wave B.  
-**Blockers:** none hard for chrome; live APIs required for cutover DoD.
+**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, and core notification toggles wired; parish users + OCR simplified prefs + sessions remain open.
 
 ---
 
