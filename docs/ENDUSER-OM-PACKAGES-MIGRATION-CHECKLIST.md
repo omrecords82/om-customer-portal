@@ -267,7 +267,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** `/portal` hub, ChurchPortalHub, theme hubs (legacy).  
 **Work ref:** `PORTAL-WAVE-D-HUB`
 
-- [x] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K** — evidence: `HomePage.tsx` honest empties (no fake KPI/activity as-if-live); live hub APIs still open
+- [x] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K** — evidence: `src/features/hub/hubApi.ts` + `useHubDashboard` wire `HomePage` to `GET /api/churches/:churchId/dashboard` + `GET /api/certificates/history` when `AUTH_MODE=live` + churchId; preview/error keep honest empties (no fake KPI/activity as-if-live)
 - [x] Hub actions/menus via `@om/ui` (quick actions on home; rich menus may use temporary RAC adapters per §2.2)
 - [x] Empty/onboarding hub states — evidence: `HomePage.tsx` empty activity + calendar panels with explicit preview/live notes
 - [x] Help / guide / site-map pages in new app
