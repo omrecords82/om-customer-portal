@@ -15,20 +15,22 @@ import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import {
+  downloadCertificatePdf,
   fetchCertificateHistory,
   startCertificateDraft,
 } from "./certificatesApi";
-import type { CertificateRow } from "./certificatesData";
+import type { CertificateKind, CertificateRow } from "./certificatesData";
 
-const KIND_LABEL: Record<CertificateRow["kind"], string> = {
+const KIND_LABEL: Record<CertificateKind, string> = {
   baptism: "Baptism",
   marriage: "Marriage",
   chrismation: "Chrismation",
+  reception: "Reception",
 };
 
 /**
- * Wave F — certificates list / generate chrome + live history seam stub.
- * Designer canvas stays app-owned later.
+ * Wave F — certificates list / generate chrome + live history.
+ * Designer canvas stays app-owned (deferred); render needs studio template+record.
  */
 export function CertificatesPage() {
   const { user } = useAuth();
@@ -40,6 +42,7 @@ export function CertificatesPage() {
   );
   const [historyNote, setHistoryNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +68,7 @@ export function CertificatesPage() {
       } else {
         setHistorySource("mock");
         setHistoryNote(
-          "Preview rows (mock). Live history uses /api/certificates/history when auth is live.",
+          "Preview rows (mock). Live history uses GET /api/certificates/history when AUTH_MODE=live and church context is present.",
         );
       }
     });
@@ -74,10 +77,12 @@ export function CertificatesPage() {
     };
   }, [user?.churchId]);
 
+  const liveHistory = historySource === "live" && authMode === "live";
+
   return (
     <PageLayout
       title="Certificates"
-      description="Issue and manage certificates of baptism, marriage, and chrismation."
+      description="Issue and manage certificates of baptism, marriage, and reception."
     >
       <Stack gap="md">
         <Card padding="lg" maw={640}>
@@ -111,24 +116,22 @@ export function CertificatesPage() {
                   setStatus(result.message);
                   return;
                 }
-                if (result.source === "mock") {
-                  setStatus(
-                    `Draft started for ${recipient.trim()} (mock). Canvas designer is deferred.`,
-                  );
-                  return;
-                }
-                setStatus(
-                  `Draft stub ${result.draftId} created. Full render/history API wiring is deferred.`,
-                );
+                setStatus(result.message);
               }}
             >
               Start draft
             </Button>
             {authMode === "live" ? (
               <Text size="xs" c="dimmed">
-                Live auth: draft seam is stubbed until Certificate Studio render ships.
+                Live auth: history loads from GET /api/certificates/history.
+                PDF render (POST /api/certificates/render) stays in Certificate
+                Studio — requires template and record; designer canvas is deferred.
               </Text>
-            ) : null}
+            ) : (
+              <Text size="xs" c="dimmed">
+                Preview mode: drafts and history rows are mock until live auth.
+              </Text>
+            )}
           </Stack>
         </Card>
 
@@ -164,7 +167,9 @@ export function CertificatesPage() {
                     <Table.Th>Recipient</Table.Th>
                     <Table.Th>Kind</Table.Th>
                     <Table.Th>Issued</Table.Th>
+                    <Table.Th>Template</Table.Th>
                     <Table.Th>Status</Table.Th>
+                    {liveHistory ? <Table.Th>PDF</Table.Th> : null}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -182,6 +187,11 @@ export function CertificatesPage() {
                         <Text size="sm">{row.issued}</Text>
                       </Table.Td>
                       <Table.Td>
+                        <Text size="sm" c="dimmed">
+                          {row.templateName ?? "—"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
                         <Badge
                           variant="light"
                           color={
@@ -195,6 +205,32 @@ export function CertificatesPage() {
                           {row.status}
                         </Badge>
                       </Table.Td>
+                      {liveHistory ? (
+                        <Table.Td>
+                          <Button
+                            size="sm"
+                            accessibleLabel={`Download certificate ${row.id}`}
+                            isDisabled={downloadingId === row.id}
+                            onAction={() => {
+                              setDownloadingId(row.id);
+                              setStatus(null);
+                              void downloadCertificatePdf(
+                                row.id,
+                                `certificate-${row.id}.pdf`,
+                              ).then((result) => {
+                                setDownloadingId(null);
+                                if (!result.ok) {
+                                  setStatus(result.message);
+                                }
+                              });
+                            }}
+                          >
+                            {downloadingId === row.id
+                              ? "Downloading…"
+                              : "Download"}
+                          </Button>
+                        </Table.Td>
+                      ) : null}
                     </Table.Tr>
                   ))}
                 </Table.Tbody>

@@ -407,11 +407,12 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Adopt BP-1 + BP-2 as the OCR routes (mobile + desktop); remove placeholder OCR page
 - [ ] **Assets library** browse/collections + AlertDialog confirms — **DEFERRED PRIORITY** (behind live auth, OCR APIs, records deep links, Wave H path, cemetery MVP, live certificates). Raise only if an active customer depends on it for routine operations. **Not a current program blocker.**
 - [x] Certificates: list, generate form chrome, history table; designer canvas app-owned
-- [ ] Live certificate generation + history where currently customer-used (**required before Wave K** where applicable) — **seam stubs** shipped: `certificatesApi.ts` (`fetchCertificateHistory`, `startCertificateDraft`); full render/studio still open
+- [x] Live certificate **history** where currently customer-used — evidence: `certificatesApi.ts` + `CertificatesPage` wire `GET /api/certificates/history` (+ authenticated `GET …/history/:id/download`) when `AUTH_MODE=live` + churchId; honest empty/error otherwise; pure helpers covered in `certificatesApi.test.ts`
+- [ ] Live certificate **generation/render** (**required before Wave K** where applicable) — **deferred with clear messaging**: `POST /api/certificates/render` needs `template_id` + `record_id` (Certificate Studio); recipient-only draft chrome must not invent those ids. Canvas/designer remains app-owned.
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  
-**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves.
+**Blockers:** Live OCR APIs for OCR cutover DoD (BP visual QA **APPROVED** 2026-07-19); assets do **not** block other waves. Full live generate remains open until studio render (template+record) is productized in portal chrome.
 
 ---
 

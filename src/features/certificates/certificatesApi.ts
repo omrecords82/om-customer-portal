@@ -1,12 +1,15 @@
 import { apiFetch } from "../../auth/apiFetch";
 import { authMode } from "../../auth/config";
-import type { CertificateRow } from "./certificatesData";
+import type { CertificateKind, CertificateRow } from "./certificatesData";
 import { MOCK_CERTIFICATES } from "./certificatesData";
 
 /**
- * Wave F certificate live seam stubs.
- * Parity targets (not fully wired): GET/POST under `/api/certificates/*`
- * (Certificate Studio: templates, history, render).
+ * Wave F certificate live client.
+ * Parity: Certificate Studio (`/api/certificates/*`)
+ *   - GET  /api/certificates/history — list/generation history
+ *   - GET  /api/certificates/history/:id/download — PDF (auth required)
+ *   - POST /api/certificates/render — requires template_id + record_id (studio);
+ *     not invoked from recipient-only draft chrome (unsafe without those ids).
  */
 
 export type FetchCertificatesResult =
@@ -21,7 +24,88 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function unwrapHistory(payload: unknown): CertificateRow[] {
+function asNumber(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Map studio + portal kind strings onto CertificateRow.kind. */
+export function normalizeCertificateKind(raw: unknown): CertificateKind {
+  const kind = asString(raw).toLowerCase();
+  if (kind === "marriage") return "marriage";
+  if (kind === "chrismation") return "chrismation";
+  if (kind === "reception") return "reception";
+  return "baptism";
+}
+
+function parseSnapshot(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw as Record<string, unknown>;
+  if (typeof raw === "string") {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Derive a display recipient from studio history fields + optional record snapshot.
+ */
+export function recipientFromHistoryRow(row: Record<string, unknown>): string {
+  const direct = asString(
+    row.recipient_name ?? row.recipient ?? row.person_name,
+  ).trim();
+  if (direct) return direct;
+
+  const snapshot = parseSnapshot(
+    row.record_snapshot_json ?? row.record_snapshot ?? row.snapshot,
+  );
+  if (snapshot) {
+    const kind = normalizeCertificateKind(
+      row.certificate_type ?? row.kind ?? snapshot.certificate_type,
+    );
+    if (kind === "marriage") {
+      const groom = [snapshot.fname_groom, snapshot.lname_groom]
+        .map((v) => asString(v).trim())
+        .filter(Boolean)
+        .join(" ");
+      const bride = [snapshot.fname_bride, snapshot.lname_bride]
+        .map((v) => asString(v).trim())
+        .filter(Boolean)
+        .join(" ");
+      const pair = [groom, bride].filter(Boolean).join(" & ");
+      if (pair) return pair;
+    }
+    const person = [
+      snapshot.first_name ?? snapshot.name,
+      snapshot.last_name ?? snapshot.lastname,
+    ]
+      .map((v) => asString(v).trim())
+      .filter(Boolean)
+      .join(" ");
+    if (person) return person;
+  }
+
+  const recordId = asNumber(row.record_id);
+  if (recordId != null) return `Record #${String(recordId)}`;
+  return "—";
+}
+
+function mapHistoryStatus(row: Record<string, unknown>): CertificateRow["status"] {
+  const statusRaw = asString(row.status, "").toLowerCase();
+  if (statusRaw === "draft" || statusRaw === "void") return statusRaw;
+  // Generation history rows from studio are completed PDFs.
+  return "issued";
+}
+
+/** Pure unwrap of GET /api/certificates/history payloads. */
+export function unwrapCertificateHistory(payload: unknown): CertificateRow[] {
   if (!payload || typeof payload !== "object") return [];
   const obj = payload as Record<string, unknown>;
   const list = obj.history ?? obj.entries ?? obj.data ?? obj.results;
@@ -29,30 +113,30 @@ function unwrapHistory(payload: unknown): CertificateRow[] {
   return list
     .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
     .map((row, index) => {
-      const id = asString(row.id, `cert-${String(index)}`);
-      const kindRaw = asString(
-        row.certificate_type ?? row.kind,
-        "baptism",
-      ).toLowerCase();
-      const kind: CertificateRow["kind"] =
-        kindRaw === "marriage" || kindRaw === "chrismation" ? kindRaw : "baptism";
-      const statusRaw = asString(row.status, "issued").toLowerCase();
-      const status: CertificateRow["status"] =
-        statusRaw === "draft" || statusRaw === "void" ? statusRaw : "issued";
-      return {
+      const idNum = asNumber(row.id);
+      const id = idNum != null ? String(idNum) : asString(row.id, `cert-${String(index)}`);
+      const kind = normalizeCertificateKind(row.certificate_type ?? row.kind);
+      const issued =
+        asString(row.generated_at ?? row.created_at ?? row.issued).slice(0, 10) ||
+        "—";
+      const templateName = asString(row.template_name ?? row.templateName).trim();
+      const recordId = asNumber(row.record_id);
+      const rowOut: CertificateRow = {
         id,
         kind,
-        recipient: asString(row.recipient_name ?? row.recipient, "—"),
-        issued: asString(row.created_at ?? row.issued).slice(0, 10) || "—",
-        status,
+        recipient: recipientFromHistoryRow(row),
+        issued,
+        status: mapHistoryStatus(row),
+        ...(templateName ? { templateName } : {}),
+        ...(recordId != null ? { recordId } : {}),
       };
+      return rowOut;
     });
 }
 
 /**
- * Live seam: GET `/api/certificates/history` when auth is live.
- * Falls back to empty live result (not mock-as-live) on empty payload;
- * returns mock only when authMode is mock.
+ * Live seam: GET `/api/certificates/history` when auth is live + churchId.
+ * Honest empty/error otherwise (never presents mock rows as live).
  */
 export async function fetchCertificateHistory(
   churchId?: number | null,
@@ -81,7 +165,7 @@ export async function fetchCertificateHistory(
       };
     }
     const data = await res.json().catch(() => null);
-    return { ok: true, source: "live", rows: unwrapHistory(data) };
+    return { ok: true, source: "live", rows: unwrapCertificateHistory(data) };
   } catch {
     return {
       ok: false,
@@ -92,34 +176,91 @@ export async function fetchCertificateHistory(
 }
 
 export type StartCertificateDraftResult =
-  | { readonly ok: true; readonly draftId: string; readonly source: "mock" | "stub" }
+  | {
+      readonly ok: true;
+      readonly draftId: string;
+      readonly source: "mock" | "deferred";
+      readonly message: string;
+    }
   | { readonly ok: false; readonly message: string };
 
 /**
- * Live seam stub for starting a certificate draft.
- * Does not invent a full render pipeline — returns a stub id for UI continuity.
+ * Draft chrome helper — does **not** call POST /api/certificates/render.
+ * Render requires template_id + record_id from Certificate Studio; inventing
+ * those from a recipient name alone would issue incorrect certificates.
  */
 export function startCertificateDraft(opts: {
   readonly recipient: string;
-  readonly kind?: CertificateRow["kind"];
+  readonly kind?: CertificateKind;
   readonly churchId?: number | null;
 }): StartCertificateDraftResult {
   const recipient = opts.recipient.trim();
   if (!recipient) {
     return { ok: false, message: "Enter a recipient name to start a draft." };
   }
-  if (authMode !== "live" || opts.churchId == null) {
+  if (authMode !== "live" || opts.churchId == null || opts.churchId <= 0) {
     return {
       ok: true,
       draftId: `mock-draft-${String(Date.now())}`,
       source: "mock",
+      message: `Mock draft for ${recipient}. Switch AUTH_MODE=live with church context for live history; PDF render stays in Certificate Studio (template + record required).`,
     };
   }
-  // Full POST /api/certificates/render (or studio generate) is deferred;
-  // stub documents the intended seam without claiming an issued certificate.
   return {
     ok: true,
-    draftId: `stub-draft-${String(opts.churchId)}-${String(Date.now())}`,
-    source: "stub",
+    draftId: `deferred-${String(opts.churchId)}-${String(Date.now())}`,
+    source: "deferred",
+    message: `Live draft for ${recipient} is deferred: POST /api/certificates/render needs template_id and record_id (studio generate). Canvas/designer remains app-owned.`,
   };
+}
+
+export type DownloadCertificateResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Authenticated PDF download (session/JWT). Direct anchor hrefs omit Authorization.
+ */
+export async function downloadCertificatePdf(
+  historyId: string | number,
+  filename?: string,
+): Promise<DownloadCertificateResult> {
+  const id = String(historyId).trim();
+  if (!id || id.startsWith("c") || id.startsWith("mock") || id.startsWith("stub")) {
+    return {
+      ok: false,
+      message: "PDF download is available for live history rows only.",
+    };
+  }
+  if (authMode !== "live") {
+    return {
+      ok: false,
+      message: "PDF download requires live auth.",
+    };
+  }
+
+  try {
+    const res = await apiFetch(`/api/certificates/history/${id}/download`, {
+      method: "GET",
+      headers: { Accept: "application/pdf" },
+    });
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Download failed (${String(res.status)}).`,
+      };
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename ?? `certificate-${id}.pdf`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(anchor);
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "Network error downloading certificate PDF." };
+  }
 }
