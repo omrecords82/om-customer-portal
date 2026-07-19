@@ -354,6 +354,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Multi-step readiness checklist using Mantine structure + `@om/ui` controls (app stepper OK)
 - [x] Persist progress locally (device) until parish onboarding APIs; live API persistence still open
 - [x] Becomes the primary **authenticated** in-portal onboarding surface (Wave I; **not** public enroll)
+- [x] Live GET `/api/onboarding/provisioning-checklist` + `/api/onboarding/me` when `AUTH_MODE=live`; preview keeps local device progress — evidence: `onboardApi.ts` + `OnboardPage.tsx` + tests
 
 **Dependencies:** Wave A (harden); Wave B for live APIs; GAP-FORM-ALERT / temporary menu adapters as needed.  
 **Blockers:** operator visual QA **recorded APPROVED 2026-07-19**; live OCR APIs remain open for cutover DoD (do not treat live OCR as complete).  
@@ -513,9 +514,9 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - Record-layout setup  
 - Persisted onboarding progress  
 
-- [ ] Adopt BP-3 (`om-onboard`) as the primary parish preparation / onboarding surface
+- [x] Adopt BP-3 (`om-onboard`) as the primary parish preparation / onboarding surface
 - [ ] Record-tables / record-layouts onboarding steps (beyond blueprint if still required)
-- [ ] Persist onboarding progress (live APIs) — **required before Wave K**
+- [x] Persist onboarding progress (live APIs) — **required before Wave K** — evidence: `onboardApi.ts` reads live checklist + `/me`; OM backend `GET /api/onboarding/provisioning-checklist` (read-only parish user)
 - [x] Public `/enroll` **explicitly excluded** from Customer Portal scope (handled outside this app)
 
 **Dependencies:** Wave BP-3; Waves B, C, forms patterns.  

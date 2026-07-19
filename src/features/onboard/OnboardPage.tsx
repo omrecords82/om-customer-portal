@@ -1,94 +1,122 @@
-import { Box, Progress, Stack, Text, Title, Group, ThemeIcon } from "@mantine/core";
+import {
+  Alert,
+  Box,
+  Progress,
+  Stack,
+  Text,
+  Title,
+  Group,
+  ThemeIcon,
+} from "@mantine/core";
 import { useComputedColorScheme } from "@mantine/core";
-import { Church, CheckCircle2, Loader2, Circle } from "lucide-react";
+import { AlertCircle, Church, CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
+import { authMode } from "../../auth/config";
+import {
+  fetchOnboardProgress,
+  PROVISIONING_STEP_DEFS,
+  readPersistedCursor,
+  stepsFromCursor,
+  writePersistedCursor,
+  type OnboardStep,
+  type OnboardStepStatus,
+} from "./onboardApi";
 
-type StepStatus = "completed" | "processing" | "pending";
+const LIVE_POLL_MS = 8_000;
 
-type OnboardStep = {
-  readonly id: string;
-  readonly label: string;
-  readonly status: StepStatus;
-};
-
-const STORAGE_KEY = "om_portal2_onboard_progress";
-
-const INITIAL_STEPS: readonly OnboardStep[] = [
-  { id: "profile", label: "Preparing Church Profile", status: "completed" },
-  { id: "storage", label: "Provisioning Database & Storage", status: "processing" },
-  { id: "users", label: "Configuring Users, Roles & Permissions", status: "pending" },
-  { id: "branding", label: "Applying Branding & Portal Template", status: "pending" },
-  { id: "records", label: "Importing Records & Enabling Certificates", status: "pending" },
-  { id: "validation", label: "Running Final Validation", status: "pending" },
-];
-
-function readPersistedCursor(): number | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { cursor?: unknown };
-    return typeof parsed.cursor === "number" ? parsed.cursor : null;
-  } catch {
-    return null;
-  }
-}
-
-function writePersistedCursor(cursor: number): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ cursor, savedAt: Date.now() }));
-}
-
-function stepsFromCursor(cursor: number): OnboardStep[] {
-  return INITIAL_STEPS.map((step, index) => {
-    if (index < cursor) return { ...step, status: "completed" as const };
-    if (index === cursor && cursor < INITIAL_STEPS.length) {
-      return { ...step, status: "processing" as const };
-    }
-    if (cursor >= INITIAL_STEPS.length) {
-      return { ...step, status: "completed" as const };
-    }
-    return { ...step, status: "pending" as const };
-  });
-}
-
-function StepIcon({ status }: { status: StepStatus }) {
+function StepIcon({ status }: { status: OnboardStepStatus }) {
   if (status === "completed") {
     return <CheckCircle2 size={22} color="var(--mantine-color-teal-6)" aria-hidden />;
   }
   if (status === "processing") {
     return <Loader2 size={22} color="var(--mantine-color-gold-6)" className="om-spin" aria-hidden />;
   }
+  if (status === "failed") {
+    return <XCircle size={22} color="var(--mantine-color-red-6)" aria-hidden />;
+  }
+  if (status === "blocked") {
+    return <AlertCircle size={22} color="var(--mantine-color-orange-6)" aria-hidden />;
+  }
   return <Circle size={22} color="var(--mantine-color-dimmed)" aria-hidden />;
+}
+
+function progressNote(
+  source: "preview" | "live",
+  checklistLive: boolean,
+  loading: boolean,
+): string {
+  if (loading) return "Loading onboarding progress…";
+  if (source === "preview") {
+    return "Preview mode — progress saved on this device until live APIs ship";
+  }
+  if (checklistLive) return "Live provisioning checklist from Orthodox Metrics";
+  return "Live enrollment status — detailed checklist pending server update";
 }
 
 /**
  * Productized OM Onboard blueprint (Mantine + token-aware chrome).
- * Progress persists locally until parish onboarding APIs are wired.
+ * Live mode reads `/api/onboarding/provisioning-checklist` + `/api/onboarding/me`.
  */
 export function OnboardPage() {
   const colorScheme = useComputedColorScheme("light");
   const [steps, setSteps] = useState<OnboardStep[]>(() => {
+    if (authMode === "live") return [];
     const saved = readPersistedCursor();
-    return saved == null ? [...INITIAL_STEPS] : stepsFromCursor(saved);
+    return saved == null ? stepsFromCursor(1) : stepsFromCursor(saved);
   });
+  const [source, setSource] = useState<"preview" | "live">(
+    authMode === "live" ? "live" : "preview",
+  );
+  const [checklistLive, setChecklistLive] = useState(false);
+  const [loading, setLoading] = useState(authMode === "live");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = readPersistedCursor();
-    if (saved != null && saved >= INITIAL_STEPS.length) {
-      return;
-    }
-    let cursor = saved == null ? 1 : Math.max(saved, 1);
-    const timer = window.setInterval(() => {
-      cursor += 1;
-      writePersistedCursor(cursor);
-      if (cursor >= INITIAL_STEPS.length) {
-        window.clearInterval(timer);
-        setSteps(stepsFromCursor(cursor));
+    if (authMode !== "live") {
+      const saved = readPersistedCursor();
+      if (saved != null && saved >= PROVISIONING_STEP_DEFS.length) {
         return;
       }
-      setSteps(stepsFromCursor(cursor));
-    }, 2200);
-    return () => window.clearInterval(timer);
+      let cursor = saved == null ? 1 : Math.max(saved, 1);
+      const timer = window.setInterval(() => {
+        cursor += 1;
+        writePersistedCursor(cursor);
+        if (cursor >= PROVISIONING_STEP_DEFS.length) {
+          window.clearInterval(timer);
+          setSteps(stepsFromCursor(cursor));
+          return;
+        }
+        setSteps(stepsFromCursor(cursor));
+      }, 2200);
+      return () => window.clearInterval(timer);
+    }
+
+    let cancelled = false;
+
+    async function loadLive() {
+      const result = await fetchOnboardProgress();
+      if (cancelled) return;
+      if (!result.ok) {
+        setError(result.message);
+        setLoading(false);
+        return;
+      }
+      setError(null);
+      setSteps([...result.steps]);
+      setSource(result.source);
+      setChecklistLive(result.checklistLive);
+      setLoading(false);
+    }
+
+    void loadLive();
+    const poll = window.setInterval(() => {
+      void loadLive();
+    }, LIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, []);
 
   const completedCount = steps.filter((s) => s.status === "completed").length;
@@ -96,11 +124,13 @@ export function OnboardPage() {
   const stepLabel =
     processingIndex >= 0
       ? `Step ${String(processingIndex + 1)} of ${String(steps.length)}`
-      : `Step ${String(steps.length)} of ${String(steps.length)}`;
-  const progress = useMemo(
-    () => Math.round((completedCount / steps.length) * 100),
-    [completedCount, steps.length],
-  );
+      : completedCount >= steps.length
+        ? `All ${String(steps.length)} steps complete`
+        : `Step ${String(completedCount + 1)} of ${String(steps.length)}`;
+  const progress = useMemo(() => {
+    if (steps.length === 0) return 0;
+    return Math.round((completedCount / steps.length) * 100);
+  }, [completedCount, steps.length]);
 
   const cardBg =
     colorScheme === "dark" ? "var(--mantine-color-dark-6)" : "var(--mantine-color-body)";
@@ -121,6 +151,11 @@ export function OnboardPage() {
         }}
       >
         <Stack gap="lg" align="center">
+          {error ? (
+            <Alert color="red" variant="light" w="100%">
+              {error}
+            </Alert>
+          ) : null}
           <ThemeIcon size={56} radius="md" variant="light" color="navy">
             <Church size={28} aria-hidden />
           </ThemeIcon>
@@ -129,7 +164,7 @@ export function OnboardPage() {
               Preparing Your Church Portal
             </Title>
             <Text size="sm" c="dimmed" ta="center">
-              {stepLabel} · progress saved on this device until live APIs ship
+              {stepLabel} · {progressNote(source, checklistLive, loading)}
             </Text>
           </Stack>
           <Progress value={progress} w="100%" color="navy" size="sm" radius="xl" />

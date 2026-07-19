@@ -1,13 +1,22 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { OnboardPage } from "./OnboardPage";
 import { portalTheme } from "../../theme/theme";
 
+vi.mock("../../auth/config", () => ({
+  authMode: "mock",
+  requireAuth: false,
+}));
+
 describe("OnboardPage", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("renders portal preparation copy and steps", () => {
     render(
       <MantineProvider theme={portalTheme}>
@@ -20,5 +29,6 @@ describe("OnboardPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("list", { name: /onboarding steps/i })).toBeInTheDocument();
     expect(screen.getByText(/Preparing Church Profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/preview mode/i)).toBeInTheDocument();
   });
 });
