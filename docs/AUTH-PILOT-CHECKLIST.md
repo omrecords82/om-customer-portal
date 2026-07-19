@@ -42,6 +42,8 @@ Copy one block per enabled tenant. Attach screenshots or log excerpts in your op
 
 ### Tenant: `om_church_46` · Church *(confirm from session diagnostics)*
 
+> **Live-auth deploy (2026-07-19):** `./scripts/deploy-static.sh` with build-time `VITE_PORTAL_BASE_PATH=/portal2`, `VITE_PORTAL_AUTH_MODE=live`, and `VITE_PORTAL_REQUIRE_AUTH=true` (one-shot; repo `.env.example` remains `mock` / `false`). Per-row evidence in the table below **still requires** operator login and manual checks — do not mark rows complete until verified.
+
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |
 | Login | [ ] | | | |
