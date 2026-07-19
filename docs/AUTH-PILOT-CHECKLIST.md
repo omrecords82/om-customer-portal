@@ -32,7 +32,7 @@
 
 | Tenant slug | Church id | Env scope / deploy note | Authorized by | Date |
 | --- | --- | --- | --- | --- |
-| `om_church_46` | *(confirm from live session diagnostics)* | Per-tenant deploy: `VITE_PORTAL_AUTH_MODE=live`, `VITE_PORTAL_REQUIRE_AUTH=true` — **not** committed globally | operator | 2026-07-19 |
+| `om_church_46` | **46** (`Saints Peter & Paul Orthodox Church` / DB `om_church_46`) | Per-tenant deploy: `VITE_PORTAL_AUTH_MODE=live`, `VITE_PORTAL_REQUIRE_AUTH=true` — **not** committed globally | operator | 2026-07-19 |
 
 > **Sole pilot tenant:** `om_church_46` is the operator-provided identifier (slug). Do **not** add other tenants without explicit authorization. If session `churchId` differs from the slug, update the Church id column after first live login — do not invent numeric IDs.
 
@@ -40,22 +40,25 @@
 
 Copy one block per enabled tenant. Attach screenshots or log excerpts in your operator ticket — not necessarily in git.
 
-### Tenant: `om_church_46` · Church *(confirm from session diagnostics)*
+### Tenant: `om_church_46` · Church **46**
 
 > **Live-auth deploy (2026-07-19):** `./scripts/deploy-static.sh` with build-time `VITE_PORTAL_BASE_PATH=/portal2`, `VITE_PORTAL_AUTH_MODE=live`, and `VITE_PORTAL_REQUIRE_AUTH=true` (one-shot; repo `.env.example` remains `mock` / `false`). Per-row evidence in the table below **still requires** operator login and manual checks — do not mark rows complete until verified.
+>
+> **Records list investigation (2026-07-19):** `frjames@ssppoc.org` → `users.church_id=46`. Prod tenant DB holds **626** baptism, **223** marriage, **447** funeral rows (all `church_id=46`). OM list APIs return data when authenticated with church context. Empty `/portal2/records` was traced to portal session bootstrap (records fetch before auth ready; `church_id` string not coerced to numeric `churchId`) — fixed in portal + OIDC redirect to `/portal2/auth/oidc-complete` when `next` starts with `/portal2`.
 
 | Check | Pass | Operator | Date | Notes |
 | --- | --- | --- | --- | --- |
-| Login | [ ] | | | |
+| Login | [ ] | | | OK for `frjames@ssppoc.org`; OIDC handoff now returns to `/portal2/auth/oidc-complete` when `next=/portal2/...` |
 | Logout | [ ] | | | |
 | Expired-session handling | [ ] | | | |
 | Unauthorized (`/auth/unauthorized`) | [ ] | | | |
-| User context (`/api/me`) | [ ] | | | Account diagnostics: user id + role |
-| Church context (session `churchId` > 0) | [ ] | | | Account diagnostics card |
+| User context (`/api/me`) | [ ] | | | Account diagnostics: user id **2**, role **priest** |
+| Church context (session `churchId` > 0) | [ ] | | | Expect **46** in Account diagnostics |
 | Parish settings (`GET /api/my/church-settings`) | [ ] | | | Parish chrome source = live |
 | Role enforcement (nav + gated pages) | [ ] | | | |
 | CSRF (mutating API smoke test) | [ ] | | | e.g. profile save |
 | Nested route `next=` round-trip | [ ] | | | `/records?type=baptism` |
+| **Records list (live)** | [ ] | | | `/portal2/records` — expect **1296** combined (626+223+447) or per-type filters |
 | Production error logging | [ ] | | | optional 403/404 observe |
 | Rollback rehearsed | [ ] | | | mock + redeploy |
 

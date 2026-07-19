@@ -54,7 +54,7 @@ const PAGE_SIZE = 25;
  * Editors / create / edit / delete deferred to Wave H.
  */
 export function RecordsPage() {
-  const { user } = useAuth();
+  const { user, ready, isAuthenticated } = useAuth();
   const editorFlags = useMemo(() => resolveRecordsEditorFlags(), []);
   const editorGateNote = useMemo(
     () => describeRecordsEditorGateStatus(editorFlags),
@@ -107,6 +107,10 @@ export function RecordsPage() {
   }, [parsed, searchParams, setSearchParams]);
 
   useEffect(() => {
+    if (authMode === "live" && (!ready || !isAuthenticated)) {
+      return;
+    }
+
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- records list bootstrap
     setListLoading(true);
@@ -156,7 +160,7 @@ export function RecordsPage() {
     return () => {
       cancelled = true;
     };
-  }, [liveEligible, user?.churchId, typeFilter, debouncedQuery, page]);
+  }, [ready, isAuthenticated, liveEligible, user?.churchId, typeFilter, debouncedQuery, page]);
 
   function updateTypeFilter(next: string | null) {
     const type: RecordsTypeFilter =

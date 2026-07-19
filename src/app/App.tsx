@@ -32,6 +32,7 @@ import { CertificatesPage } from "../features/certificates/CertificatesPage";
 import { CemeteryPage } from "../features/cemetery/CemeteryPage";
 import { MetricsPage } from "../features/metrics/MetricsPage";
 import { LoginPage } from "../features/auth/LoginPage";
+import { OidcCompletePage } from "../features/auth/OidcCompletePage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { UnauthorizedPage } from "../features/auth/UnauthorizedPage";
 import { VerifyEmailPage } from "../features/auth/VerifyEmailPage";
@@ -42,6 +43,10 @@ import { ParishProfileProvider } from "../shell/ParishProfileProvider";
 
 const router = createBrowserRouter(
   [
+    {
+      path: "/auth/oidc-complete",
+      element: <OidcCompletePage />,
+    },
     {
       path: "/auth/login",
       element: <LoginPage />,

@@ -9,6 +9,7 @@ type LooseUser = {
   readonly display_name?: unknown;
   readonly role?: unknown;
   readonly church_id?: unknown;
+  readonly churchId?: unknown;
 };
 
 function asString(value: unknown): string | null {
@@ -16,7 +17,16 @@ function asString(value: unknown): string | null {
 }
 
 function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value.trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function churchIdFromPayload(record: LooseUser): number | null {
+  return asNumber(record.church_id) ?? asNumber(record.churchId);
 }
 
 function initialsFrom(name: string, email: string): string {
@@ -57,7 +67,7 @@ export function portalUserFromPayload(raw: unknown): PortalUser | null {
     displayName,
     role,
     initials: initialsFrom(displayName, email),
-    churchId: asNumber(record.church_id),
+    churchId: churchIdFromPayload(record),
   };
 }
 

@@ -5,6 +5,7 @@ import { TextField } from "@om/ui/text-field";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 
+import { rememberPortalPostLoginNext } from "./OidcCompletePage";
 import { useAuth } from "../../auth/AuthProvider";
 import { getSafePortalNext } from "../../auth/safeNext";
 import { fetchAuthenticatedDestination } from "../onboard/onboardPresentation";
@@ -78,6 +79,7 @@ export function LoginPage() {
 
     setPending(true);
     setFormError(null);
+    rememberPortalPostLoginNext(nextPath);
     try {
       const result = await login(
         {

@@ -22,6 +22,25 @@ describe("portalUserFromPayload", () => {
     });
   });
 
+  it("coerces string church_id and churchId alias", () => {
+    expect(
+      portalUserFromPayload({
+        id: 2,
+        email: "a@example.com",
+        church_id: "46",
+        role: "priest",
+      })?.churchId,
+    ).toBe(46);
+    expect(
+      portalUserFromPayload({
+        id: 2,
+        email: "a@example.com",
+        churchId: 46,
+        role: "priest",
+      })?.churchId,
+    ).toBe(46);
+  });
+
   it("rejects incomplete payloads", () => {
     expect(portalUserFromPayload({ email: "x@y.z" })).toBeNull();
   });
