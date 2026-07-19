@@ -10,6 +10,7 @@ import {
   Title,
 } from "@mantine/core";
 import { Button } from "@om/ui/button";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
@@ -26,6 +27,17 @@ import {
   type CertificateTemplateOption,
 } from "./certificatesApi";
 import type { CertificateKind, CertificateRow } from "./certificatesData";
+import {
+  buildCertificateHistoryNote,
+  buildCertificateRecordsNote,
+  buildCertificateTemplatesNote,
+  buildHistoryEmptyTableCopy,
+  classifyRenderStatusMessage,
+  historySourceBadgeLabel,
+  resolveCertificateHistorySource,
+  shouldShowHistoryRefresh,
+  type CertificateHistorySource,
+} from "./certificatesPresentation";
 
 const KIND_LABEL: Record<CertificateKind, string> = {
   baptism: "Baptism",
@@ -40,15 +52,18 @@ const STUDIO_TYPE_OPTIONS: { value: CertificateStudioType; label: string }[] = [
   { value: "reception", label: "Reception" },
 ];
 
+const RECORD_SEARCH_DEBOUNCE_MS = 300;
+
 /**
  * Wave F — certificates list / generate chrome + live history + render.
  * Designer canvas stays app-owned (deferred).
  */
 export function CertificatesPage() {
   const { user } = useAuth();
+  const liveAuth = authMode === "live";
   const [status, setStatus] = useState<string | null>(null);
   const [rows, setRows] = useState<readonly CertificateRow[]>([]);
-  const [historySource, setHistorySource] = useState<"mock" | "live" | "empty">(
+  const [historySource, setHistorySource] = useState<CertificateHistorySource>(
     "mock",
   );
   const [historyNote, setHistoryNote] = useState<string | null>(null);
@@ -67,69 +82,55 @@ export function CertificatesPage() {
   const [recordsNote, setRecordsNote] = useState<string | null>(null);
   const [recordId, setRecordId] = useState("");
   const [recordSearch, setRecordSearch] = useState("");
+  const [debouncedRecordSearch, setDebouncedRecordSearch] = useState("");
   const [listsLoading, setListsLoading] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [lastHistoryId, setLastHistoryId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handle = window.setTimeout(
+      () => setDebouncedRecordSearch(recordSearch),
+      RECORD_SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(handle);
+  }, [recordSearch]);
 
   const reloadHistory = useCallback(() => {
     setLoading(true);
     void fetchCertificateHistory(user?.churchId).then((result) => {
       setLoading(false);
+      const source = resolveCertificateHistorySource({
+        ok: result.ok,
+        fetchSource: result.ok ? result.source : "live",
+        rowCount: result.ok ? result.rows.length : 0,
+      });
+      setHistorySource(source);
       if (!result.ok) {
         setRows([]);
-        setHistorySource("empty");
-        setHistoryNote(result.message);
+        setHistoryNote(
+          buildCertificateHistoryNote({
+            source: "empty",
+            errorMessage: result.message,
+          }),
+        );
         return;
       }
       setRows(result.rows);
-      if (result.source === "live") {
-        setHistorySource(result.rows.length === 0 ? "empty" : "live");
-        setHistoryNote(
-          result.rows.length === 0
-            ? "No certificate history for this church yet."
-            : null,
-        );
-      } else {
-        setHistorySource("mock");
-        setHistoryNote(
-          "Preview rows (mock). Live history uses GET /api/certificates/history when AUTH_MODE=live and church context is present.",
-        );
-      }
+      setHistoryNote(
+        buildCertificateHistoryNote({
+          source,
+          ...(source === "empty" && !result.rows.length
+            ? {}
+            : { errorMessage: null }),
+        }),
+      );
     });
   }, [user?.churchId]);
 
   useEffect(() => {
-    let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- certificate history bootstrap
-    setLoading(true);
-    void fetchCertificateHistory(user?.churchId).then((result) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (!result.ok) {
-        setRows([]);
-        setHistorySource("empty");
-        setHistoryNote(result.message);
-        return;
-      }
-      setRows(result.rows);
-      if (result.source === "live") {
-        setHistorySource(result.rows.length === 0 ? "empty" : "live");
-        setHistoryNote(
-          result.rows.length === 0
-            ? "No certificate history for this church yet."
-            : null,
-        );
-      } else {
-        setHistorySource("mock");
-        setHistoryNote(
-          "Preview rows (mock). Live history uses GET /api/certificates/history when AUTH_MODE=live and church context is present.",
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.churchId]);
+    reloadHistory();
+  }, [reloadHistory]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,16 +150,13 @@ export function CertificatesPage() {
         return;
       }
       setTemplates(tplResult.templates);
-      if (tplResult.source === "mock") {
-        setTemplatesNote(
-          "Preview mode: template list is empty. Enter a template id manually, or switch AUTH_MODE=live with church context.",
-        );
-      } else if (tplResult.templates.length === 0) {
-        setTemplatesNote(
-          "No active templates for this type. Enter a template id, or create one in Certificate Studio.",
-        );
-      } else {
-        setTemplatesNote(null);
+      setTemplatesNote(
+        buildCertificateTemplatesNote({
+          source: tplResult.source,
+          count: tplResult.templates.length,
+        }),
+      );
+      if (tplResult.templates.length > 0) {
         const def = tplResult.templates.find((t) => t.isDefault);
         if (def) setTemplateId(String(def.id));
       }
@@ -175,7 +173,7 @@ export function CertificatesPage() {
     void fetchCertificateRecords({
       ...(user?.churchId != null ? { churchId: user.churchId } : {}),
       certificateType: certType,
-      search: recordSearch,
+      search: debouncedRecordSearch,
     }).then((recResult) => {
       if (cancelled) return;
       setListsLoading(false);
@@ -185,28 +183,26 @@ export function CertificatesPage() {
         return;
       }
       setRecords(recResult.records);
-      if (recResult.source === "mock") {
-        setRecordsNote(
-          "Preview mode: record list is empty. Enter a record id manually, or switch AUTH_MODE=live with church context.",
-        );
-      } else if (recResult.records.length === 0) {
-        setRecordsNote(
-          "No matching records. Adjust search or enter a record id.",
-        );
-      } else {
-        setRecordsNote(null);
-      }
+      setRecordsNote(
+        buildCertificateRecordsNote({
+          source: recResult.source,
+          count: recResult.records.length,
+        }),
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, [user?.churchId, certType, recordSearch]);
+  }, [user?.churchId, certType, debouncedRecordSearch]);
 
-  const liveHistory = historySource === "live" && authMode === "live";
+  const liveHistory = historySource === "live" && liveAuth;
   const canRender =
     Boolean(templateId.trim()) &&
     Boolean(recordId.trim()) &&
     !rendering;
+  const statusTone = classifyRenderStatusMessage(status);
+  const historyEmptyCopy = buildHistoryEmptyTableCopy(historySource, loading);
+  const showHistoryRefresh = shouldShowHistoryRefresh(liveAuth, historySource);
 
   const templateSelectData = templates.map((t) => ({
     value: String(t.id),
@@ -317,7 +313,11 @@ export function CertificatesPage() {
               />
             )}
             {templatesNote ? (
-              <Text size="xs" c="dimmed" role="status">
+              <Text
+                size="xs"
+                c={templatesNote.includes("unavailable") ? "red" : "dimmed"}
+                role={templatesNote.includes("unavailable") ? "alert" : "status"}
+              >
                 {templatesNote}
               </Text>
             ) : null}
@@ -354,13 +354,25 @@ export function CertificatesPage() {
               />
             )}
             {recordsNote ? (
-              <Text size="xs" c="dimmed" role="status">
+              <Text
+                size="xs"
+                c={recordsNote.includes("unavailable") ? "red" : "dimmed"}
+                role={recordsNote.includes("unavailable") ? "alert" : "status"}
+              >
                 {recordsNote}
               </Text>
             ) : null}
 
             {status ? (
-              <Text size="sm" role="status">
+              <Text
+                size="sm"
+                {...(statusTone === "error"
+                  ? { c: "red" as const }
+                  : statusTone === "success"
+                    ? { c: "teal" as const }
+                    : {})}
+                role={statusTone === "neutral" ? "status" : "alert"}
+              >
                 {status}
               </Text>
             ) : null}
@@ -416,7 +428,7 @@ export function CertificatesPage() {
               ) : null}
             </Group>
 
-            {authMode === "live" ? (
+            {liveAuth ? (
               <Text size="xs" c="dimmed">
                 Live auth: POST /api/certificates/render with template_id +
                 record_id (and church context). Designer canvas stays
@@ -434,30 +446,50 @@ export function CertificatesPage() {
 
         <Card padding="lg">
           <Stack gap="md">
-            <Group justify="space-between">
+            <Group justify="space-between" wrap="wrap">
               <Title order={3} style={{ fontWeight: 500 }}>
                 History
               </Title>
-              <Text size="sm" c="dimmed">
-                {loading
-                  ? "Loading…"
-                  : historySource === "live"
-                    ? "live"
-                    : historySource === "empty"
-                      ? "empty"
-                      : "mock"}
-              </Text>
+              <Group gap="sm">
+                {showHistoryRefresh ? (
+                  <Button
+                    className="om-btn-ghost"
+                    variant="secondary"
+                    size="sm"
+                    isDisabled={loading}
+                    accessibleLabel="Refresh certificate history"
+                    onAction={() => {
+                      reloadHistory();
+                    }}
+                  >
+                    <RefreshCw size={14} aria-hidden />
+                    Refresh
+                  </Button>
+                ) : null}
+                <Text size="sm" c="dimmed">
+                  {historySourceBadgeLabel(historySource, loading)}
+                </Text>
+              </Group>
             </Group>
             {historyNote ? (
-              <Text size="sm" c="dimmed" role="status">
+              <Text
+                size="sm"
+                c={historySource === "empty" && liveAuth ? "red" : "dimmed"}
+                role={
+                  historySource === "empty" && liveAuth && historyNote.includes("unavailable")
+                    ? "alert"
+                    : "status"
+                }
+              >
                 {historyNote}
               </Text>
             ) : null}
-            {rows.length === 0 && !loading ? (
+            {historyEmptyCopy ? (
               <Text size="sm" c="dimmed">
-                No certificates to show.
+                {historyEmptyCopy}
               </Text>
-            ) : (
+            ) : null}
+            {rows.length > 0 ? (
               <Table striped highlightOnHover withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
@@ -532,7 +564,7 @@ export function CertificatesPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-            )}
+            ) : null}
           </Stack>
         </Card>
       </Stack>

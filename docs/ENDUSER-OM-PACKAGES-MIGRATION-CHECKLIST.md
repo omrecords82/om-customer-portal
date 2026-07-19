@@ -272,7 +272,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Dashboard widgets backed by real APIs **or honest empty states** (memberships, recent activity, certificates counts) — **required before Wave K** — evidence: `src/features/hub/hubApi.ts` + `useHubDashboard` wire `HomePage` to `GET /api/churches/:churchId/dashboard` + `GET /api/certificates/history` when `AUTH_MODE=live` + churchId; preview/error keep honest empties (no fake KPI/activity as-if-live)
 - [x] Hub actions/menus via `@om/ui` (quick actions on home; rich menus may use temporary RAC adapters per §2.2)
 - [x] Empty/onboarding hub states — evidence: `HomePage.tsx` honest activity + calendar empties; `hubPresentation.ts` status/KPI copy + secondary module cards with availability badges (preview/live/disabled); calendar CTA → Help
-- [x] Help / guide / site-map pages in new app
+- [x] Help / guide / site-map pages in new app — **Polish (2026-07-19):** grouped site map (workflows / parish admin), certificates getting-started card, live-auth note
 - [x] Nav config single-sourced (routes, titles, icons, permissions) — permissions TBD with live roles
 
 **Dependencies:** Waves B–C for session/permissions.  
@@ -415,6 +415,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Certificates: list, generate form chrome, history table; designer canvas app-owned
 - [x] Live certificate **history** where currently customer-used — evidence: `certificatesApi.ts` + `CertificatesPage` wire `GET /api/certificates/history` (+ authenticated `GET …/history/:id/download`) when `AUTH_MODE=live` + churchId; honest empty/error otherwise; pure helpers covered in `certificatesApi.test.ts`
 - [x] Live certificate **generation/render** — evidence: `CertificatesPage` picks certificate type + `template_id` + `record_id` (selects from `GET /api/certificates/templates` + `GET /api/certificates/records/:type`, or manual id fields); live + churchId calls `POST /api/certificates/render`; surfaces success/error honestly (incl. `missing_fields`); download/history link when `history_id` returned; mock mode refuses with clear messaging (no fake live success). Pure builders/parsers in `certificatesApi.test.ts`. Canvas/designer remains app-owned / deferred.
+- [x] **Certificates DoD polish (2026-07-19)** — evidence: `certificatesPresentation.ts` + tests for history/template/record notes and render status tone; `CertificatesPage` debounced record search, live history Refresh, alert/success styling, deduped history load; Help site map grouped + certificates guide; nav description aligned to studio types (baptism/marriage/reception). Assets library + interactive reports remain deferred.
 - [ ] Interactive reports recipient flows if parish-facing — **lower than assets**; deferred behind core live workflows
 
 **Dependencies:** Wave BP (OCR); Waves B, D, E.  

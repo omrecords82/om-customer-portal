@@ -94,7 +94,7 @@ export const PORTAL_NAV: readonly PortalNavItem[] = [
     label: "Certificates",
     icon: Award,
     title: "Certificates",
-    description: "Issue and manage certificates of baptism, marriage, and chrismation.",
+    description: "Issue and manage certificates of baptism, marriage, and reception.",
     showInSidebar: true,
   },
   {
