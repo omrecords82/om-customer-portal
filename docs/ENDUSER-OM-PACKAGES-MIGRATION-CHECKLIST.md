@@ -257,7 +257,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard / Wave I
 
 **Dependencies:** Wave B.  
-**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, and core notification toggles wired; parish users + OCR simplified prefs + sessions remain open.
+**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, core notification toggles, and parish user directory wired; OCR simplified prefs + sessions remain open.
 
 ---
 
