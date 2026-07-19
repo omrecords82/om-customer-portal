@@ -1,8 +1,13 @@
 import { Badge, Card, Group, Stack, Table, Text, Title } from "@mantine/core";
 import { Button } from "@om/ui/button";
 import { MapPin } from "lucide-react";
+import { useMemo } from "react";
 
 import { PageLayout } from "../../components/PageLayout";
+import {
+  canShowCemeteryMap,
+  resolveCemeteryFlags,
+} from "./cemeteryFlags";
 
 const PLOTS = [
   { id: "p1", section: "A", lot: "12", status: "occupied", name: "Kozlov family" },
@@ -12,8 +17,36 @@ const PLOTS = [
 
 /**
  * Wave G — cemetery list chrome. Map engine stays app-owned / deferred.
+ * Flags default off; church overrides must come from config APIs (not hard-coded).
  */
 export function CemeteryPage() {
+  // No church-id hardcoding: overrides arrive later from parish config APIs.
+  const flags = useMemo(() => resolveCemeteryFlags(), []);
+  const showMap = canShowCemeteryMap(flags);
+
+  if (!flags.enabled) {
+    return (
+      <PageLayout
+        title="Cemetery"
+        description="Cemetery module is disabled for this church."
+      >
+        <Card padding="lg" maw={640}>
+          <Stack gap="sm">
+            <Text size="sm">
+              Feature flags default off (`cemetery.enabled`). Operators enable per church after
+              geometry and record mappings are validated.
+            </Text>
+            <Text size="sm" c="dimmed">
+              Flags: map={String(flags.mapEnabled)} · maintenance=
+              {String(flags.maintenanceEnabled)} · reports=
+              {String(flags.reportsEnabled)}
+            </Text>
+          </Stack>
+        </Card>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout
       title="Cemetery"
@@ -28,12 +61,22 @@ export function CemeteryPage() {
                 Map
               </Title>
             </Group>
-            <Text size="sm" c="dimmed">
-              Interactive map hosting is app-owned and deferred. List chrome below is ready for
-              plot APIs.
-            </Text>
-            <Button className="om-btn-ghost" variant="secondary" size="sm" isDisabled>
-              Open map (coming soon)
+            {showMap ? (
+              <Text size="sm" c="dimmed">
+                Map shell ready for validated geometry (read-only MVP). Editing tools are excluded.
+              </Text>
+            ) : (
+              <Text size="sm" c="dimmed">
+                Map disabled until `cemetery.mapEnabled` is on and geometry is validated.
+              </Text>
+            )}
+            <Button
+              className="om-btn-ghost"
+              variant="secondary"
+              size="sm"
+              isDisabled={!showMap}
+            >
+              {showMap ? "Open map" : "Open map (disabled)"}
             </Button>
           </Stack>
         </Card>
@@ -84,6 +127,17 @@ export function CemeteryPage() {
             </Table>
           </Stack>
         </Card>
+
+        {flags.maintenanceEnabled ? (
+          <Card padding="lg">
+            <Text size="sm">Maintenance surface enabled for this church.</Text>
+          </Card>
+        ) : null}
+        {flags.reportsEnabled ? (
+          <Card padding="lg">
+            <Text size="sm">Reports surface enabled for this church.</Text>
+          </Card>
+        ) : null}
       </Stack>
     </PageLayout>
   );

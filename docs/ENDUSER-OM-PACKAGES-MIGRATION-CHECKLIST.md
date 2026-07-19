@@ -334,7 +334,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement 4-phase mobile upload flow from blueprint (capture → review/crop → process → results) in `om-customer-portal`
 - [x] Camera / file picker / permission-denied / offline-ish empty states — mock connect modes present
 - [x] Mobile-first Mantine layout (AppShell-compatible; usable inside portal navbar)
-- [ ] Wire **live** OCR upload/job APIs (priority after auth pilot) — mock seam until then
+- [x] Wire **live** OCR job history API when `AUTH_MODE=live` + church context (`ocrApi.ts`); upload/seed still mock until next pass
 - [x] Nav entry under OCR / Uploads for church roles (not super_admin-only blueprint gate)
 
 #### BP-2 — OM OCR Desktop (full implementation)
@@ -342,7 +342,7 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 - [x] Reimplement desktop/batch OCR portal from blueprint (history, configure, upload, processing, results)
 - [x] Replace Tailwind chrome with Mantine + `@om/ui` tables/menus/dialogs
 - [x] Job history list + filters; batch actions with AlertDialog confirms
-- [ ] Integrate with existing OM OCR job APIs (**live** parity with legacy `PortalOcrDesktopApp` behavior, new UI only)
+- [ ] Integrate with existing OM OCR job APIs for **upload/retry/seed** (history live fetch done when auth live)
 - [x] This becomes the primary `/ocr` experience in Customer Portal (Wave F consumes it; do not build a second competing OCR UI)
 
 #### BP-3 — OM Onboard (full implementation)
@@ -387,7 +387,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Add / more actions via Button/Menu/AlertDialog (Add button + destructive delete confirm)
 - [x] Mobile-friendly list/card chrome
 - [x] Deep-link **product decision** recorded (preserve legacy `?type=` contract)
-- [ ] Deep-link **implementation + tests** (parse/normalize/fallback; evidence required)
+- [x] Deep-link **implementation + tests** (parse/normalize/fallback; evidence: `recordsDeepLink.ts` + tests)
 
 **Do not start:** sacramental field editors / AG Grid cell editing (Wave H) until Wave H entry gates pass.
 
@@ -441,7 +441,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [ ] Cemetery map page (read-only MVP) — map engine app-owned; panels/tooltips/controls `@om/ui`
 - [x] Cemetery records/plots lists chrome (mock) — extend toward MVP navigation/surfaces
 - [ ] Maintenance / reports navigation gated by flags
-- [ ] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off)
+- [x] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off) — `cemeteryFlags.ts` + env overlays
 - [x] Church metrics / charts chrome — KPI cards ready; chart libs stay app-owned
 - [ ] Liturgical calendar chrome — **POST-MVP** (in product; not a cutover blocker)
 
@@ -464,7 +464,7 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 - [ ] Live authentication and church context work for pilot users
 - [ ] Real records-list APIs work in the Customer Portal
-- [ ] Wave E records deep-link compatibility is implemented and tested
+- [x] Wave E records deep-link compatibility is implemented and tested
 - [ ] Canonical baptism, marriage, and funeral schemas exist in `@om/contracts`
 - [ ] Read / create / update / delete permission rules are documented
 - [ ] Tenant-isolation tests exist

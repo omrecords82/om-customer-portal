@@ -13,16 +13,21 @@ import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
 import { IconButton } from "@om/ui/icon-button";
 import { LayoutGrid, List, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { PageLayout } from "../../components/PageLayout";
 import {
   MOCK_RECORDS,
   RECORD_TYPE_LABEL,
   filterRecords,
-  type RecordType,
   type SacramentalRecord,
 } from "./recordsData";
+import {
+  buildRecordsSearch,
+  parseRecordsDeepLink,
+  type RecordsTypeFilter,
+} from "./recordsDeepLink";
 
 const TYPE_FILTER = [
   { value: "all", label: "All types" },
@@ -37,24 +42,72 @@ const STATUS_COLOR: Record<SacramentalRecord["status"], string> = {
 
 /**
  * Wave E — records list chrome (search/filters/views). Editors are Wave H.
+ * Deep links: preserve legacy `?type=` contract (+ aliases, recordId, churchId).
  */
 export function RecordsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const parsed = useMemo(
+    () => parseRecordsDeepLink(searchParams),
+    [searchParams],
+  );
+
+  // URL is the source of truth for type filter (bookmarks / external links).
+  const typeFilter = parsed.typeFilter;
+
   const [records, setRecords] = useState<SacramentalRecord[]>([...MOCK_RECORDS]);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string | null>("all");
+  const [query, setQuery] = useState(() => parsed.extras.q ?? "");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  // Normalize alias types in the address bar (weddings → marriage) without dropping extras.
+  useEffect(() => {
+    const rawType = searchParams.get("type");
+    if (!rawType) return;
+    if (parsed.canonicalType && rawType.toLowerCase() !== parsed.canonicalType) {
+      const next = buildRecordsSearch({
+        typeFilter: parsed.typeFilter,
+        recordId: parsed.recordId,
+        churchId: parsed.churchId,
+        extras: parsed.extras,
+      });
+      setSearchParams(next.startsWith("?") ? next.slice(1) : next, { replace: true });
+    }
+  }, [parsed, searchParams, setSearchParams]);
+
+  function updateTypeFilter(next: string | null) {
+    const type: RecordsTypeFilter =
+      next === "baptism" ||
+      next === "marriage" ||
+      next === "funeral" ||
+      next === "chrismation"
+        ? next
+        : "all";
+    const qs = buildRecordsSearch({
+      typeFilter: type,
+      recordId: parsed.recordId,
+      churchId: parsed.churchId,
+      extras: {
+        ...parsed.extras,
+        ...(query.trim() ? { q: query.trim() } : {}),
+      },
+    });
+    setSearchParams(qs.startsWith("?") ? qs.slice(1) : qs, { replace: true });
+  }
 
   const filtered = useMemo(
     () =>
       filterRecords(records, {
         query,
-        type: (typeFilter ?? "all") as RecordType | "all",
+        type: typeFilter,
       }),
     [records, query, typeFilter],
   );
 
   const pending = records.find((r) => r.id === pendingDeleteId) ?? null;
+  const deepLinkNote =
+    parsed.recordId != null
+      ? ` · deep link recordId=${parsed.recordId}`
+      : "";
 
   return (
     <PageLayout
@@ -81,7 +134,7 @@ export function RecordsPage() {
               aria-label="Filter by record type"
               data={TYPE_FILTER}
               value={typeFilter}
-              onChange={setTypeFilter}
+              onChange={updateTypeFilter}
               maw={200}
             />
           </Group>
@@ -105,6 +158,7 @@ export function RecordsPage() {
 
         <Text size="sm" c="dimmed">
           {`${String(filtered.length)} records · mock data · editors deferred to Wave H`}
+          {deepLinkNote}
         </Text>
 
         {filtered.length === 0 ? (

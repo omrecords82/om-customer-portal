@@ -29,7 +29,13 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageLayout } from "../../components/PageLayout";
+import { useAuth } from "../../auth/AuthProvider";
+import { authMode } from "../../auth/config";
 import { filterBatches } from "./filterBatches";
+import {
+  fetchChurchOcrJobs,
+  mapOcrJobToWizardStatus,
+} from "./ocrApi";
 import type { Batch, BatchStatus, ProcessingMode } from "./types";
 
 type Screen =
@@ -157,9 +163,13 @@ function WizardRail({ current }: { current: number }) {
  * Source UX: /blueprints/om-ocr-desktop
  */
 export function OcrDesktopPage() {
+  const { user } = useAuth();
   const [screen, setScreen] = useState<Screen>("history");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [batches, setBatches] = useState(INITIAL_BATCHES);
+  const [historySource, setHistorySource] = useState<"mock" | "live">("mock");
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>("all");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -169,6 +179,52 @@ export function OcrDesktopPage() {
   const [mode, setMode] = useState<ProcessingMode>("standard");
   const [uploadedCount, setUploadedCount] = useState(0);
   const [procStep, setProcStep] = useState(0);
+
+  useEffect(() => {
+    const churchId = user?.churchId;
+    if (authMode !== "live" || churchId == null || churchId <= 0) {
+      return;
+    }
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external OCR jobs fetch bootstrap
+    setHistoryLoading(true);
+    setHistoryError(null);
+    void fetchChurchOcrJobs(churchId).then((result) => {
+      if (cancelled) return;
+      setHistoryLoading(false);
+      if (!result.ok) {
+        setHistoryError(result.message);
+        setHistorySource("mock");
+        return;
+      }
+      if (result.jobs.length === 0) {
+        setHistorySource("live");
+        setBatches([]);
+        return;
+      }
+      const mapped: Batch[] = result.jobs.map((job) => {
+        const status = mapOcrJobToWizardStatus(job) as BatchStatus;
+        return {
+          id: `job-${job.id}`,
+          name: job.original_filename ?? job.filename,
+          recordType: job.record_type
+            ? job.record_type.charAt(0).toUpperCase() + job.record_type.slice(1)
+            : "Baptism",
+          submitted: job.created_at?.slice(0, 10) ?? "—",
+          pages: 1,
+          records: 0,
+          mode: "standard" as const,
+          status,
+          needsReview: status === "ready-for-review" ? 1 : 0,
+        };
+      });
+      setBatches(mapped);
+      setHistorySource("live");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.churchId]);
 
   const filteredBatches = useMemo(
     () =>
@@ -229,6 +285,14 @@ export function OcrDesktopPage() {
 
       {screen === "history" && (
         <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            {historyLoading
+              ? "Loading OCR jobs…"
+              : historySource === "live"
+                ? "History from live OCR jobs API."
+                : "Mock history (set VITE_PORTAL_AUTH_MODE=live with church context for API jobs)."}
+            {historyError ? ` · ${historyError}` : ""}
+          </Text>
           <Group justify="space-between" wrap="wrap" align="flex-end">
             <Group gap="sm" wrap="wrap" align="flex-end">
               <TextInput
