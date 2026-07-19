@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { requireAuth } from "./config";
 import { useAuth } from "./AuthProvider";
+import { buildPortalReturnPath, loginPathWithNext } from "./safeNext";
 
 export function RequireAuth({ children }: { readonly children: ReactNode }) {
   const { ready, isAuthenticated } = useAuth();
@@ -17,13 +18,8 @@ export function RequireAuth({ children }: { readonly children: ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    const next = `${location.pathname}${location.search}${location.hash}`;
-    return (
-      <Navigate
-        to={`/auth/login?next=${encodeURIComponent(next)}`}
-        replace
-      />
-    );
+    const next = buildPortalReturnPath(location);
+    return <Navigate to={loginPathWithNext(next)} replace />;
   }
 
   return children;

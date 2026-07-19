@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { getSafePortalNext, loginPathWithNext } from "../../auth/safeNext";
 import {
   buildRecordsSearch,
   normalizeRecordsTypeParam,
@@ -66,5 +67,24 @@ describe("buildRecordsSearch", () => {
         churchId: 1,
       }),
     ).toBe("?type=funeral&recordId=9&churchId=1");
+  });
+});
+
+describe("records deep link × auth next= round-trip", () => {
+  it("parseRecordsDeepLink still works after login next= encode/decode", () => {
+    const appPath = "/records?type=baptism&recordId=42";
+    const loginSearch = loginPathWithNext(appPath).split("?")[1] ?? "";
+    const restored = getSafePortalNext(loginSearch);
+    expect(restored).toBe(appPath);
+
+    const qIndex = restored.indexOf("?");
+    const search = qIndex >= 0 ? restored.slice(qIndex + 1) : "";
+    expect(parseRecordsDeepLink(new URLSearchParams(search))).toEqual({
+      typeFilter: "baptism",
+      canonicalType: "baptism",
+      recordId: "42",
+      churchId: null,
+      extras: {},
+    });
   });
 });

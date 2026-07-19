@@ -224,12 +224,13 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 | Pilot tenant **enablement** (`VITE_PORTAL_REQUIRE_AUTH=true`, `VITE_PORTAL_AUTH_MODE=live` for internal users + **explicitly allowlisted** pilot tenants) | **Authorized** |
 | Global customer post-login routing / `/portal` retirement | **Deferred to Wave K only** — do **not** authorize yet |
 
-**Before enabling a pilot tenant, verify:** login; logout; expired-session handling; unauthorized handling; user context; church context; role enforcement; CSRF behavior; direct nested-route access; production error logging; rollback behavior.
+**Before enabling a pilot tenant, verify:** login; logout; expired-session handling; unauthorized handling; user context; church context; role enforcement; CSRF behavior; direct nested-route access (path+query via `next=`); production error logging; rollback behavior. See `docs/AUTH-PILOT-CHECKLIST.md`.
 
 - [x] Session client aligned with OM auth APIs (cookies/CSRF as required) — app data layer (`mock` default / `live` mode)
 - [x] Login, forgot password, unauthorized, verify-email, accept-invite pages in Customer Portal
 - [x] Post-login routing policy recorded: pilots stay on `/portal2`; **do not** globally flip legacy `/portal` (Wave K)
 - [x] Live authentication **pilot authorization** recorded (operator 2026-07-19)
+- [x] Nested-route / gate automated tests — evidence: `safeNext.test.ts`, `RequireAuth.test.tsx`, `apiFetch.test.ts`, `recordsDeepLink.test.ts` (nested `/records?type=baptism` `next=` round-trip; `requireAuth` on/off; 401 redirect). **Does not** close per-tenant enablement.
 - [ ] Pilot tenant enablement evidence (allowlist + verification checklist above) per tenant
 - [x] Account password change dialog + profile surface exist; sessions list / live password API still open
 - [x] GAP-FORM-ALERT interim: FieldError for fields; FormAlert/`@om/ui/toast` still Codex-owned for form-level / transient events

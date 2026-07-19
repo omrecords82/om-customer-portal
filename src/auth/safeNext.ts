@@ -3,6 +3,7 @@ import { portalBasePath } from "../config/basePath";
 /**
  * Allow only same-app relative paths for post-login `next`.
  * Rejects absolute URLs, protocol-relative URLs, and paths outside the portal basename.
+ * Preserves nested path + query + hash (e.g. `/records?type=baptism`).
  */
 export function getSafePortalNext(
   search: string,
@@ -41,6 +42,20 @@ export function getSafePortalNext(
   }
 
   return decoded.startsWith("/") ? decoded : fallback;
+}
+
+/** Path + search + hash for post-login return (preserves nested deep links). */
+export function buildPortalReturnPath(parts: {
+  readonly pathname: string;
+  readonly search?: string;
+  readonly hash?: string;
+}): string {
+  return `${parts.pathname}${parts.search ?? ""}${parts.hash ?? ""}`;
+}
+
+/** In-app login route with encoded `next` (RequireAuth / 401 redirect shape). */
+export function loginPathWithNext(returnPath: string): string {
+  return `/auth/login?next=${encodeURIComponent(returnPath)}`;
 }
 
 /** Absolute path including basename for OIDC `next` query params. */

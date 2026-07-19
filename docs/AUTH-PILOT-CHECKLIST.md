@@ -24,9 +24,20 @@ Apply only for internal users and **explicitly allowlisted** pilot tenants. Do n
 - [ ] Church context loaded
 - [ ] Role enforcement
 - [ ] CSRF behavior
-- [ ] Direct nested-route access (e.g. `/portal2/records?type=baptism`)
+- [ ] Direct nested-route access (e.g. `/portal2/records?type=baptism`) — unauthenticated hit must land on `/auth/login?next=` with the full path+query encoded; after login, `getSafePortalNext` restores `/records?type=baptism` and records deep-link parse still applies
 - [ ] Production error logging observed
 - [ ] Rollback plan rehearsed (revert env to `mock` / `REQUIRE_AUTH=false`, redeploy)
+
+## Automated evidence (not a substitute for per-tenant enablement)
+
+Vitest coverage for Wave B nested-route / gate behavior (shipped with `PORTAL-WAVE-B-AUTH`):
+
+- `src/auth/safeNext.test.ts` — `getSafePortalNext` / `loginPathWithNext` for `/records?type=baptism` (+ basename strip)
+- `src/auth/RequireAuth.test.tsx` — `requireAuth` true vs false; nested `next=` redirect shape
+- `src/auth/apiFetch.test.ts` — live+requireAuth 401 → login with nested `next=`
+- `src/features/records/recordsDeepLink.test.ts` — deep-link parse after `next=` round-trip
+
+Do **not** treat this section as pilot tenant enablement complete.
 
 ## Rollback
 
