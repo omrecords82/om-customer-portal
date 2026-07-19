@@ -440,11 +440,11 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 
 **Liturgical calendar:** **IN PRODUCT / POST-MVP**. Remains on the parish Customer Portal roadmap. **Does not block** initial portal cutover. Schedule after live auth, records, OCR, parish settings, required certificates, and cemetery for enabled churches.
 
-- [ ] Cemetery map page (read-only MVP) — map engine app-owned; panels/tooltips/controls `@om/ui`
-- [x] Cemetery records/plots lists chrome (mock) — extend toward MVP navigation/surfaces
-- [ ] Maintenance / reports navigation gated by flags
+- [ ] Cemetery map page (read-only MVP) — map engine app-owned; panels/tooltips/controls `@om/ui` — shell only when `mapEnabled`; geometry fetch still deferred
+- [x] Cemetery records/plots lists + deceased search (read MVP) — evidence: `cemeteryApi.ts` + `CemeteryPage` wire `GET /api/churches/:churchId/cemetery/plots` + `GET …/people/search` when `cemetery.enabled` and `AUTH_MODE=live` + churchId; preview stub otherwise; plot detail panel select; no geometry editing; no hard-coded church IDs
+- [x] Maintenance / reports navigation gated by flags — surfaces render only when `maintenanceEnabled` / `reportsEnabled` (default off)
 - [x] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off) — `cemeteryFlags.ts` + env overlays
-- [x] Church metrics / charts chrome — KPI cards ready; chart libs stay app-owned
+- [x] Church metrics / charts chrome + live KPIs — evidence: `metricsApi.ts` + `MetricsPage` wire `GET /api/churches/:churchId/dashboard` (KPIs/labels) + optional `GET …/charts/summary` label notes when OM Charts enabled; chart libs deferred; honest empty/error when not live or missing churchId
 - [ ] Liturgical calendar chrome — **POST-MVP** (in product; not a cutover blocker)
 
 **Dependencies:** Waves B, D, table patterns from C/E.  
