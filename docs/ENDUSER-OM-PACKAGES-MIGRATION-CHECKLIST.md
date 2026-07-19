@@ -252,12 +252,12 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 
 - [x] Profile / personal info / notifications — evidence: `settingsApi.ts` + `AccountPage` wire GET/PUT `/api/user/profile`, PUT `/api/user/profile/password`, GET/PUT `/api/notifications/preferences` (`weekly_digest`, `certificate_ready`) when `AUTH_MODE=live`; preview keeps honest local messaging
 - [x] Parish info / church details — evidence: `ParishSettingsPage` + `settingsApi.ts` wire GET/PUT `/api/my/church-settings` when live + church context; role-gated edit (`church_admin`, `priest`, etc.)
-- [x] Branding / OCR prefs (controls only; heavy editors later) — OCR simplified toggles remain preview-only (honest copy); full `/api/my/ocr-preferences` schema deferred
+- [x] Branding / OCR prefs (controls only; heavy editors later) — evidence: `PreferencesPage` + `settingsApi.ts` wire GET/PUT `/api/my/ocr-preferences` when `AUTH_MODE=live` + OCR admin role (`super_admin`, `admin`, `church_admin`); autoseed toggle maps to `useRecordSnippets`; review auto-open stays disabled (no API field); preview keeps honest local messaging
 - [x] Parish users list (semantic `@om/ui/table` + mock rows) — evidence: `ParishUsersPage` + `settingsApi.ts` wire GET `/api/admin/church-users/:churchId` + POST unlock when `AUTH_MODE=live` + parish staff role; preview keeps mock rows; invite + revoke CTAs gated (platform-admin APIs only)
 - [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard / Wave I
 
 **Dependencies:** Wave B.  
-**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, core notification toggles, parish user directory, and account sessions wired; OCR simplified prefs remain open.
+**Blockers:** none hard for chrome; live APIs required for cutover DoD — profile, parish details, core notification toggles, parish user directory, account sessions, and OCR autoseed default wired; full OCR settings editor (language, preprocessing, retention) remains deferred.
 
 ---
 

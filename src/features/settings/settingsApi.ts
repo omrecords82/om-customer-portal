@@ -66,8 +66,26 @@ export type SaveNotificationPrefsResult =
   | { readonly ok: true; readonly source: "preview" | "live" }
   | { readonly ok: false; readonly message: string; readonly status: number };
 
+export type PortalOcrSlice = OcrPrefs & {
+  /** True when autoseed toggle is backed by live `/api/my/ocr-preferences`. */
+  readonly autoseedLive: boolean;
+  /** Always false in live — no matching API field for review auto-open. */
+  readonly autoOpenReviewLive: boolean;
+  /** Church-level OCR feature flag from GET response. */
+  readonly ocrEnabled: boolean;
+};
+
 export type FetchOcrPrefsResult =
-  | { readonly ok: true; readonly source: "preview" | "live"; readonly prefs: OcrPrefs }
+  | {
+      readonly ok: true;
+      readonly source: "preview" | "live";
+      readonly prefs: PortalOcrSlice;
+      readonly editable: boolean;
+    }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+export type SaveOcrPrefsResult =
+  | { readonly ok: true; readonly source: "preview" | "live" }
   | { readonly ok: false; readonly message: string; readonly status: number };
 
 const NOTIF_WEEKLY_DIGEST = "weekly_digest";
@@ -88,6 +106,21 @@ const PARISH_USER_ADMIN_ROLES = new Set([
   "priest",
   "manager",
 ]);
+
+/** Matches OM `/api/my/ocr-preferences` admin gate. */
+const OCR_ADMIN_ROLES = new Set(["super_admin", "admin", "church_admin"]);
+
+export type OcrApiPreferences = {
+  readonly language?: unknown;
+  readonly defaultLanguage?: unknown;
+  readonly confidenceThreshold?: unknown;
+  readonly deskew?: unknown;
+  readonly removeNoise?: unknown;
+  readonly preprocessImages?: unknown;
+  readonly useRecordSnippets?: unknown;
+  readonly documentProcessing?: unknown;
+  readonly documentDeletion?: unknown;
+};
 
 function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -298,6 +331,63 @@ export function canViewParishUsers(role: string | undefined): boolean {
 
 export function canUnlockParishUsers(role: string | undefined): boolean {
   return canViewParishUsers(role);
+}
+
+export function canManageOcrPrefs(role: string | undefined): boolean {
+  if (!role) return false;
+  return OCR_ADMIN_ROLES.has(role);
+}
+
+function unwrapOcrPreferences(payload: unknown): {
+  readonly prefs: OcrApiPreferences | null;
+  readonly ocrEnabled: boolean;
+} {
+  if (!payload || typeof payload !== "object") {
+    return { prefs: null, ocrEnabled: true };
+  }
+  const root = payload as Record<string, unknown>;
+  const preferences = root.preferences;
+  const ocrEnabled = root.ocrEnabled !== false;
+  if (!preferences || typeof preferences !== "object") {
+    return { prefs: null, ocrEnabled };
+  }
+  return { prefs: preferences, ocrEnabled };
+}
+
+/** Map GET `/api/my/ocr-preferences` to simplified portal OCR toggles. */
+export function ocrApiPrefsToPortalPrefs(
+  apiPrefs: OcrApiPreferences,
+  ocrEnabled = true,
+): PortalOcrSlice {
+  const useRecordSnippets =
+    apiPrefs.useRecordSnippets === undefined
+      ? true
+      : asBool(apiPrefs.useRecordSnippets);
+
+  return {
+    defaultMode: useRecordSnippets ? "autoseed" : "standard",
+    autoOpenReview: true,
+    autoseedLive: true,
+    autoOpenReviewLive: false,
+    ocrEnabled,
+  };
+}
+
+/** Map simplified portal OCR toggles to partial PUT body. */
+export function portalOcrPrefsToApiUpdate(prefs: OcrPrefs): { useRecordSnippets: boolean } {
+  return {
+    useRecordSnippets: prefs.defaultMode === "autoseed",
+  };
+}
+
+function previewOcrPrefs(): PortalOcrSlice {
+  return {
+    defaultMode: "standard",
+    autoOpenReview: true,
+    autoseedLive: false,
+    autoOpenReviewLive: true,
+    ocrEnabled: true,
+  };
 }
 
 export type ChurchUserApiRow = {
@@ -1087,14 +1177,110 @@ export async function updateNotificationPrefs(
   }
 }
 
-/** OCR simplified toggles — preview-only until portal UX maps to `/api/my/ocr-preferences`. */
-export function fetchOcrPrefs(): FetchOcrPrefsResult {
-  return {
-    ok: true,
-    source: "preview",
-    prefs: {
-      defaultMode: "standard",
-      autoOpenReview: true,
-    },
-  };
+/** GET `/api/my/ocr-preferences` — simplified autoseed toggle when admin + live. */
+export async function fetchOcrPrefs(
+  role: string | undefined,
+): Promise<FetchOcrPrefsResult> {
+  if (authMode !== "live") {
+    return {
+      ok: true,
+      source: "preview",
+      prefs: previewOcrPrefs(),
+      editable: true,
+    };
+  }
+
+  if (!canManageOcrPrefs(role)) {
+    return {
+      ok: true,
+      source: "live",
+      prefs: {
+        ...previewOcrPrefs(),
+        autoseedLive: false,
+        autoOpenReviewLive: false,
+      },
+      editable: false,
+    };
+  }
+
+  try {
+    const res = await apiFetch("/api/my/ocr-preferences", { method: "GET" });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(
+          payload,
+          `OCR preferences unavailable (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+
+    const { prefs: apiPrefs, ocrEnabled } = unwrapOcrPreferences(payload);
+    if (!apiPrefs) {
+      return {
+        ok: false,
+        message: "OCR preferences response was empty or malformed.",
+        status: 502,
+      };
+    }
+
+    return {
+      ok: true,
+      source: "live",
+      prefs: ocrApiPrefsToPortalPrefs(apiPrefs, ocrEnabled),
+      editable: ocrEnabled,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error loading OCR preferences.",
+      status: 0,
+    };
+  }
+}
+
+/** PUT `/api/my/ocr-preferences` — persists autoseed ↔ useRecordSnippets mapping. */
+export async function updateOcrPrefs(
+  prefs: OcrPrefs,
+  role: string | undefined,
+): Promise<SaveOcrPrefsResult> {
+  if (authMode !== "live") {
+    return { ok: true, source: "preview" };
+  }
+
+  if (!canManageOcrPrefs(role)) {
+    return {
+      ok: false,
+      message: "Your role cannot edit church OCR defaults.",
+      status: 403,
+    };
+  }
+
+  try {
+    const res = await apiFetch("/api/my/ocr-preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(portalOcrPrefsToApiUpdate(prefs)),
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(
+          payload,
+          `Could not save OCR preferences (${String(res.status)}).`,
+        ),
+        status: res.status,
+      };
+    }
+    return { ok: true, source: "live" };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error saving OCR preferences.",
+      status: 0,
+    };
+  }
 }

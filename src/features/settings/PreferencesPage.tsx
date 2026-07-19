@@ -3,6 +3,7 @@ import { Button } from "@om/ui/button";
 import { Switch } from "@om/ui/switch";
 import { useEffect, useState } from "react";
 
+import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import type { NotificationPrefs, OcrPrefs } from "./settingsData";
@@ -10,9 +11,11 @@ import {
   fetchNotificationPrefs,
   fetchOcrPrefs,
   updateNotificationPrefs,
+  updateOcrPrefs,
 } from "./settingsApi";
 
 export function PreferencesPage() {
+  const { user } = useAuth();
   const live = authMode === "live";
 
   const [notifications, setNotifications] = useState<NotificationPrefs>({
@@ -29,7 +32,10 @@ export function PreferencesPage() {
   const [loading, setLoading] = useState(live);
   const [saving, setSaving] = useState(false);
   const [notificationsLive, setNotificationsLive] = useState(false);
-  const [ocrPreviewOnly, setOcrPreviewOnly] = useState(true);
+  const [ocrEditable, setOcrEditable] = useState(false);
+  const [ocrAutoseedLive, setOcrAutoseedLive] = useState(false);
+  const [ocrAutoOpenLive, setOcrAutoOpenLive] = useState(false);
+  const [ocrEnabled, setOcrEnabled] = useState(true);
 
   useEffect(() => {
     if (!live) return;
@@ -37,48 +43,82 @@ export function PreferencesPage() {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- external preferences bootstrap
     setLoading(true);
-    void fetchNotificationPrefs().then((notifResult) => {
-      const ocrResult = fetchOcrPrefs();
-      if (cancelled) return;
-      if (notifResult.ok) {
-        setNotifications(notifResult.prefs);
-        setNotificationsLive(notifResult.source === "live");
-      } else {
-        setLoadError(notifResult.message);
-      }
-      if (ocrResult.ok) {
-        setOcr(ocrResult.prefs);
-        setOcrPreviewOnly(ocrResult.source === "preview");
-      }
-      setLoading(false);
-    });
+    void Promise.all([fetchNotificationPrefs(), fetchOcrPrefs(user?.role)]).then(
+      ([notifResult, ocrResult]) => {
+        if (cancelled) return;
+
+        const errors: string[] = [];
+        if (notifResult.ok) {
+          setNotifications(notifResult.prefs);
+          setNotificationsLive(notifResult.source === "live");
+        } else {
+          errors.push(notifResult.message);
+        }
+
+        if (ocrResult.ok) {
+          setOcr(ocrResult.prefs);
+          setOcrEditable(ocrResult.editable);
+          setOcrAutoseedLive(ocrResult.prefs.autoseedLive);
+          setOcrAutoOpenLive(ocrResult.prefs.autoOpenReviewLive);
+          setOcrEnabled(ocrResult.prefs.ocrEnabled);
+        } else {
+          errors.push(ocrResult.message);
+        }
+
+        setLoadError(errors.length > 0 ? errors.join(" ") : null);
+        setLoading(false);
+      },
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [live]);
+  }, [live, user?.role]);
 
   async function save() {
     setSaving(true);
     setStatus(null);
 
-    if (live && notificationsLive) {
-      const result = await updateNotificationPrefs(notifications);
+    if (!live) {
       setSaving(false);
-      if (!result.ok) {
-        setStatus(result.message);
-        return;
-      }
-      setStatus(
-        ocrPreviewOnly
-          ? "Notification preferences saved. OCR defaults remain preview-only until aligned with /api/my/ocr-preferences."
-          : "Preferences saved.",
-      );
+      setStatus("Preferences saved locally (preview mode).");
       return;
     }
 
+    const messages: string[] = [];
+
+    if (notificationsLive) {
+      const result = await updateNotificationPrefs(notifications);
+      if (!result.ok) {
+        setSaving(false);
+        setStatus(result.message);
+        return;
+      }
+      messages.push("Notification preferences saved.");
+    }
+
+    if (ocrEditable) {
+      const result = await updateOcrPrefs(ocr, user?.role);
+      if (!result.ok) {
+        setSaving(false);
+        setStatus(result.message);
+        return;
+      }
+      messages.push("OCR defaults saved.");
+    }
+
     setSaving(false);
-    setStatus("Preferences saved locally (preview mode).");
+
+    if (messages.length === 0) {
+      setStatus("No live preference sections are editable for your role.");
+      return;
+    }
+
+    if (ocrAutoseedLive && !ocrEditable) {
+      messages.push("OCR is disabled for this parish — autoseed default not saved.");
+    }
+
+    setStatus(messages.join(" "));
   }
 
   return (
@@ -102,8 +142,8 @@ export function PreferencesPage() {
         {live ? (
           <Text size="sm" c="dimmed">
             Live notification toggles persist via /api/notifications/preferences.
-            Simplified OCR defaults stay preview-only until mapped to church OCR
-            settings APIs.
+            Church administrators can save the autoseed default via
+            /api/my/ocr-preferences (maps to useRecordSnippets).
           </Text>
         ) : null}
         {loadError ? (
@@ -179,7 +219,7 @@ export function PreferencesPage() {
                   defaultMode: isSelected ? "autoseed" : "standard",
                 }))
               }
-              isDisabled={loading || ocrPreviewOnly}
+              isDisabled={loading || (live && !ocrEditable)}
             >
               Prefer auto-seed when eligible
             </Switch>
@@ -188,14 +228,18 @@ export function PreferencesPage() {
               onSelectionChange={(isSelected) =>
                 setOcr((prev) => ({ ...prev, autoOpenReview: isSelected }))
               }
-              isDisabled={loading || ocrPreviewOnly}
+              isDisabled={loading || (live && !ocrAutoOpenLive)}
             >
               Open review workspace when a batch is ready
             </Switch>
             <Text size="sm" c="dimmed">
-              {ocrPreviewOnly
-                ? "OCR default toggles are preview-only. Full church OCR settings live at /api/my/ocr-preferences (admin roles)."
-                : "Branding upload / theme editors stay deferred until brand tokens ship."}
+              {!live
+                ? "Preview mode — OCR toggles save locally only."
+                : !ocrAutoseedLive
+                  ? "Church OCR defaults require a church administrator role (super_admin, admin, or church_admin)."
+                  : !ocrEnabled
+                    ? "OCR is disabled for this parish. Autoseed default cannot be changed until OCR is enabled."
+                    : "Autoseed maps to church useRecordSnippets. Review auto-open has no API field yet — toggle disabled in live mode."}
             </Text>
           </Stack>
         </Card>

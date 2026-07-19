@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canEditChurchSettings,
+  canManageOcrPrefs,
   canUnlockParishUsers,
   canViewParishUsers,
   churchSettingsToParishProfile,
@@ -15,12 +16,14 @@ import {
   formatSessionRelativeTime,
   maskSessionIp,
   notificationRowsToPortalPrefs,
+  ocrApiPrefsToPortalPrefs,
   parseChurchUsersResponse,
   parseSessionUserAgent,
   parseUserProfile,
   parseUserSessionsResponse,
   parishLocationToApiFields,
   parishProfileToChurchPayload,
+  portalOcrPrefsToApiUpdate,
   portalPrefsToNotificationUpdates,
 } from "./settingsApi";
 
@@ -162,6 +165,38 @@ describe("settingsApi helpers", () => {
   it("checks church editor roles", () => {
     expect(canEditChurchSettings("church_admin")).toBe(true);
     expect(canEditChurchSettings("editor")).toBe(false);
+  });
+
+  it("checks OCR admin roles", () => {
+    expect(canManageOcrPrefs("church_admin")).toBe(true);
+    expect(canManageOcrPrefs("priest")).toBe(false);
+    expect(canManageOcrPrefs(undefined)).toBe(false);
+  });
+
+  it("maps OCR API preferences to simplified portal toggles", () => {
+    expect(
+      ocrApiPrefsToPortalPrefs({ useRecordSnippets: true }, true),
+    ).toMatchObject({
+      defaultMode: "autoseed",
+      autoseedLive: true,
+      autoOpenReviewLive: false,
+      ocrEnabled: true,
+    });
+    expect(
+      ocrApiPrefsToPortalPrefs({ useRecordSnippets: false }, false),
+    ).toMatchObject({
+      defaultMode: "standard",
+      ocrEnabled: false,
+    });
+  });
+
+  it("builds OCR update payload from portal autoseed toggle", () => {
+    expect(
+      portalOcrPrefsToApiUpdate({ defaultMode: "autoseed", autoOpenReview: true }),
+    ).toEqual({ useRecordSnippets: true });
+    expect(
+      portalOcrPrefsToApiUpdate({ defaultMode: "standard", autoOpenReview: false }),
+    ).toEqual({ useRecordSnippets: false });
   });
 
   it("checks parish user admin roles", () => {
