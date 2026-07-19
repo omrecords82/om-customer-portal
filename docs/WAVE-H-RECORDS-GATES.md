@@ -83,11 +83,14 @@ Vitest: `src/features/records/recordsApi.test.ts` — section **“tenant isolat
 
 | Item | Status |
 |---|---|
-| Package pin | `@om/contracts` → `@omrecords82/contracts@0.1.0` (`package.json`) |
-| Canonical baptism / marriage / funeral **editor** schemas | **Not in 0.1.0** — requires `@omrecords82/contracts` repo release |
-| Portal list model | App-owned `SacramentalRecord` in `recordsData.ts` + row mappers in `recordsApi.ts` (intentional until contract ships) |
+| Package pin (portal) | `@om/contracts` → `@omrecords82/contracts@0.1.0` (`package.json`) — **bump to `0.2.0` after publish** |
+| Source schemas | **Landed** in `om-packages` `@om/contracts@0.2.0` — `packages/contracts/src/records/` (baptism, marriage, funeral create/update/list + Zod parsers) |
+| GitHub Packages publish | **Pending operator** — `@omrecords82/contracts@0.2.0` not on registry yet (`NODE_AUTH_TOKEN` + Node ≥24.18 for `node scripts/publish-github-packages.mjs`) |
+| Portal list model | App-owned `SacramentalRecord` in `recordsData.ts` + row mappers in `recordsApi.ts` until portal pin bumps to `0.2.0` |
 
-**Gate status:** remains **open** until packages repo publishes sacramental schemas. Do **not** block list/permission/tenant docs on this; Wave H editors **must not** start without the contract or an explicit operator waiver.
+**Gate status (2026-07-19):** **Closed in source** — canonical sacramental schemas exist and are tested in `om-packages` (`feature/phase-1n-sacramental-record-schemas`). **Consumption gate open** until `@omrecords82/contracts@0.2.0` is published and the portal dependency pin is updated. Wave H **Baptism editor** may be operator-authorized only after publish + portal pin bump (dual-run flags remain default off).
+
+**Schema exports (0.2.0):** `parseBaptismRecordCreate|Update`, `parseMarriageRecordCreate|Update`, `parseFuneralRecordCreate|Update`, list query/response parsers, `SACRAMENT_RECORD_STATUSES`, `CURRENT_RECORDS_SCHEMA_VERSION`.
 
 ---
 
@@ -139,11 +142,11 @@ Same pattern as auth pilot rollback: `docs/AUTH-PILOT-CHECKLIST.md`.
 | Live authentication and church context for pilot users | **Closed** — enablement evidence complete for `om_church_46` (2026-07-19); rollback rehearse **waived** (`AUTH-PILOT-CHECKLIST.md`) |
 | Real records-list APIs in portal | **Closed** (prior commit) |
 | Wave E deep-link compatibility | **Closed** (prior) |
-| Canonical schemas in `@om/contracts` | **Open** — packages repo |
+| Canonical schemas in `@om/contracts` | **Closed (source)** — `om-packages` `@om/contracts@0.2.0`; **publish + portal pin pending** — §4 |
 | Read/create/update/delete permission rules documented | **Closed** — §1 |
 | Tenant-isolation tests exist | **Closed** — `recordsApi.test.ts` |
 | Clergy / location / related-record selection defined | **Closed** — §5 |
 | Dual-run or rollback defined | **Closed** — §6 + `recordsEditorFlags.ts` |
 | Audit-logging requirements defined | **Closed** — §3 |
 
-**Editors remain blocked** until operator re-authorizes Wave H after the remaining open gate: canonical `@om/contracts` sacramental schemas (§4).
+**Editors remain blocked** until operator re-authorizes Wave H after **GitHub Packages publish** of `@omrecords82/contracts@0.2.0` and portal dependency pin bump. Schema source gate is closed (§4).
