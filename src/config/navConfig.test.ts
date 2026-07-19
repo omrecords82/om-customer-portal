@@ -16,4 +16,10 @@ describe("navConfig", () => {
       true,
     );
   });
+
+  it("includes parish settings routes", () => {
+    expect(getNavItem("/settings/parish")?.title).toBe("Parish settings");
+    expect(getNavItem("/settings/users")?.title).toBe("Parish users");
+    expect(getNavItem("/settings/preferences")?.showInSidebar).toBe(false);
+  });
 });

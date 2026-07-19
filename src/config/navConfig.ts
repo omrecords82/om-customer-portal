@@ -9,6 +9,9 @@ import {
   Award,
   HelpCircle,
   Church,
+  Settings,
+  Users,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export type PortalHref =
@@ -21,7 +24,10 @@ export type PortalHref =
   | "/certificates"
   | "/help"
   | "/account"
-  | "/onboarding";
+  | "/onboarding"
+  | "/settings/parish"
+  | "/settings/users"
+  | "/settings/preferences";
 
 export type PortalNavItem = {
   readonly href: PortalHref;
@@ -98,6 +104,30 @@ export const PORTAL_NAV: readonly PortalNavItem[] = [
     title: "Portal Onboarding",
     description: "Church portal preparation and provisioning status.",
     showInSidebar: true,
+  },
+  {
+    href: "/settings/parish",
+    label: "Parish settings",
+    icon: Settings,
+    title: "Parish settings",
+    description: "Church identity and contact details.",
+    showInSidebar: true,
+  },
+  {
+    href: "/settings/users",
+    label: "Parish users",
+    icon: Users,
+    title: "Parish users",
+    description: "People who can access this church portal.",
+    showInSidebar: true,
+  },
+  {
+    href: "/settings/preferences",
+    label: "Preferences",
+    icon: SlidersHorizontal,
+    title: "Preferences",
+    description: "Notification and OCR defaults.",
+    showInSidebar: false,
   },
   {
     href: "/help",

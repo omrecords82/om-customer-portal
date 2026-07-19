@@ -1,8 +1,10 @@
-import { Card, Stack, Text, Title } from "@mantine/core";
+import { Card, List, Stack, Text, Title } from "@mantine/core";
 import { Button } from "@om/ui/button";
+import { Switch } from "@om/ui/switch";
 import { TextField } from "@om/ui/text-field";
 import { Dialog } from "@om/ui/dialog";
 import { useState } from "react";
+import { Link } from "react-router";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { PageLayout } from "../../components/PageLayout";
@@ -16,6 +18,8 @@ export function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [emailDigest, setEmailDigest] = useState(true);
 
   function resetPasswordForm() {
     setCurrentPassword("");
@@ -37,7 +41,6 @@ export function AccountPage() {
       setError("New password must be at least 8 characters.");
       return;
     }
-    // API seam: Wave B live mode will POST /api/auth/change-password
     setStatus("Password change recorded locally (mock). Wire live API next.");
     setPasswordOpen(false);
     resetPasswordForm();
@@ -54,12 +57,11 @@ export function AccountPage() {
             <Title order={3} style={{ fontWeight: 500 }}>
               Profile
             </Title>
-            <Text size="sm">
-              <Text span fw={500}>
-                Name:{" "}
-              </Text>
-              {user?.displayName ?? "—"}
-            </Text>
+            <TextField
+              label="Display name"
+              value={displayName}
+              onValueChange={setDisplayName}
+            />
             <Text size="sm">
               <Text span fw={500}>
                 Email:{" "}
@@ -75,6 +77,54 @@ export function AccountPage() {
             <Text size="sm" c="dimmed">
               Parish: {parish.name}
             </Text>
+            <Button
+              className="om-btn-ghost"
+              variant="secondary"
+              size="sm"
+              accessibleLabel="Save profile"
+              onAction={() =>
+                setStatus("Profile saved locally (mock). Persist with Wave C APIs.")
+              }
+            >
+              Save profile
+            </Button>
+          </Stack>
+        </Card>
+
+        <Card padding="lg">
+          <Stack gap="sm">
+            <Title order={3} style={{ fontWeight: 500 }}>
+              Notifications
+            </Title>
+            <Switch isSelected={emailDigest} onSelectionChange={setEmailDigest}>
+              Email digest for parish activity
+            </Switch>
+            <Text size="sm">
+              More notification controls live under{" "}
+              <Link to="/settings/preferences">Preferences</Link>.
+            </Text>
+          </Stack>
+        </Card>
+
+        <Card padding="lg">
+          <Stack gap="sm">
+            <Title order={3} style={{ fontWeight: 500 }}>
+              Parish administration
+            </Title>
+            <List size="sm" spacing={4}>
+              <List.Item>
+                <Link to="/settings/parish">Parish details</Link>
+              </List.Item>
+              <List.Item>
+                <Link to="/settings/users">Parish users</Link>
+              </List.Item>
+              <List.Item>
+                <Link to="/settings/preferences">OCR & notification preferences</Link>
+              </List.Item>
+              <List.Item>
+                <Link to="/onboarding">Portal onboarding checklist</Link>
+              </List.Item>
+            </List>
           </Stack>
         </Card>
 
@@ -146,7 +196,7 @@ export function AccountPage() {
               </Stack>
             </Dialog>
             <Text size="sm" c="dimmed">
-              Session list / revoke-other-devices arrives with live auth APIs.
+              Active sessions list / revoke-other-devices arrives with live auth APIs.
             </Text>
           </Stack>
         </Card>

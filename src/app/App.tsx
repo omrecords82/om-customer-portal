@@ -17,9 +17,15 @@ import { OnboardPage } from "../features/onboard/OnboardPage";
 import { OcrMobilePage } from "../features/ocr-mobile/OcrMobilePage";
 import { OcrDesktopPage } from "../features/ocr-desktop/OcrDesktopPage";
 import { AccountPage } from "../features/account/AccountPage";
+import { ParishSettingsPage } from "../features/settings/ParishSettingsPage";
+import { ParishUsersPage } from "../features/settings/ParishUsersPage";
+import { PreferencesPage } from "../features/settings/PreferencesPage";
+import { HelpPage } from "../features/help/HelpPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { UnauthorizedPage } from "../features/auth/UnauthorizedPage";
+import { VerifyEmailPage } from "../features/auth/VerifyEmailPage";
+import { AcceptInvitePage } from "../features/auth/AcceptInvitePage";
 import { AuthProvider } from "../auth/AuthProvider";
 import { RequireAuth } from "../auth/RequireAuth";
 import { getNavItem } from "../config/navConfig";
@@ -54,6 +60,14 @@ const router = createBrowserRouter(
       element: <UnauthorizedPage />,
     },
     {
+      path: "/auth/verify-email",
+      element: <VerifyEmailPage />,
+    },
+    {
+      path: "/auth/accept-invite",
+      element: <AcceptInvitePage />,
+    },
+    {
       path: "/",
       element: (
         <RequireAuth>
@@ -69,7 +83,10 @@ const router = createBrowserRouter(
         { path: "cemetery", element: placeholderFor("/cemetery") },
         { path: "certificates", element: placeholderFor("/certificates") },
         { path: "onboarding", element: <OnboardPage /> },
-        { path: "help", element: placeholderFor("/help") },
+        { path: "settings/parish", element: <ParishSettingsPage /> },
+        { path: "settings/users", element: <ParishUsersPage /> },
+        { path: "settings/preferences", element: <PreferencesPage /> },
+        { path: "help", element: <HelpPage /> },
         { path: "account", element: <AccountPage /> },
         {
           path: "*",

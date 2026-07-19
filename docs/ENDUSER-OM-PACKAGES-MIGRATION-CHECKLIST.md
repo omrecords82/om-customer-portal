@@ -167,7 +167,7 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** legacy `/auth/*`, Wave 1 files in `features/auth/**` (patterns only).
 
 - [x] Session client aligned with OM auth APIs (cookies/CSRF as required) — app data layer (`mock` default / `live` mode)
-- [x] Login, forgot password, unauthorized pages in Customer Portal (verify email / accept invite still open)
+- [x] Login, forgot password, unauthorized, verify-email, accept-invite pages in Customer Portal
 - [x] Post-login routing **flagged**: stay on `/portal2` for pilot tenants; do not globally flip legacy `/portal` yet
 - [x] Account password change dialog (mock) + profile surface; sessions list still open
 - [x] GAP-FORM-ALERT interim: FieldError-only until package ships
@@ -186,11 +186,11 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 
 **Parity reference:** `/account/*`, `parish-management/*` (legacy).
 
-- [ ] Profile / personal info / notifications
-- [ ] Parish info / church details (read + edit as product allows)
-- [ ] Branding / OCR prefs (controls only; heavy editors later)
-- [ ] Parish users list (semantic `@om/ui/table` + app pagination)
-- [ ] Onboarding steps that church admins still need on first login
+- [x] Profile / personal info / notifications (mock save; live APIs later)
+- [x] Parish info / church details (read + edit mock)
+- [x] Branding / OCR prefs (controls only; heavy editors later)
+- [x] Parish users list (semantic `@om/ui/table` + mock rows)
+- [x] Onboarding steps that church admins still need on first login — link to Wave BP onboard
 
 **Dependencies:** Wave B.  
 **Blockers:** none hard.
@@ -204,10 +204,10 @@ Us existing exports for new portal screens. Do not rebuild these in-app.
 **Parity reference:** `/portal` hub, ChurchPortalHub, theme hubs (legacy).
 
 - [ ] Dashboard widgets backed by real APIs (memberships, recent activity, certificates counts)
-- [ ] Hub actions/menus via `@om/ui` (after GAP-MENU-RICH or acceptable text-only interim)
+- [x] Hub actions/menus via `@om/ui` (quick actions on home; GAP-MENU-RICH still open for rich menus)
 - [ ] Empty/onboarding hub states
-- [ ] Help / guide / site-map pages in new app
-- [ ] Nav config single-sourced (routes, titles, icons, permissions)
+- [x] Help / guide / site-map pages in new app
+- [x] Nav config single-sourced (routes, titles, icons, permissions) — permissions TBD with live roles
 
 **Dependencies:** Waves B–C for session/permissions.  
 **Blockers:** OQ-3 template debates apply to **legacy** only; new app already chose Mantine shell — do not reopen unless product asks.

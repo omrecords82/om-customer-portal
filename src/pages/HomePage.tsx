@@ -11,6 +11,7 @@ import {
   FileBadge,
   CalendarX,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { PageLayout } from "../components/PageLayout";
 
 // ─── Mock activity data ───────────────────────────────────────────────────────
@@ -229,12 +230,16 @@ function EmptyStatePanel() {
 // ─── Home page ────────────────────────────────────────────────────────────────
 
 export function HomePage() {
+  const navigate = useNavigate();
   const primaryAction = (
     <Button
       className="om-btn-primary"
       variant="primary"
       size="sm"
       accessibleLabel="Add a new record"
+      onAction={() => {
+        void navigate("/records");
+      }}
     >
       <Plus size={14} aria-hidden="true" />
       New Record
@@ -248,6 +253,36 @@ export function HomePage() {
       action={primaryAction}
     >
       <Stack gap="lg">
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            onAction={() => {
+              void navigate("/ocr");
+            }}
+          >
+            Start OCR batch
+          </Button>
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            onAction={() => {
+              void navigate("/onboarding");
+            }}
+          >
+            Continue onboarding
+          </Button>
+          <Button
+            className="om-btn-ghost"
+            variant="secondary"
+            onAction={() => {
+              void navigate("/settings/parish");
+            }}
+          >
+            Parish settings
+          </Button>
+        </SimpleGrid>
+
         {/* Summary cards */}
         <SimpleGrid
           cols={{ base: 1, sm: 2, lg: 3 }}
