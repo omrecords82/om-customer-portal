@@ -65,7 +65,38 @@ describe("mapRowToSacramentalRecord", () => {
       date: "2026-06-12",
       clergy: "Fr. Michael",
       status: "complete",
+      firstName: "Michael",
+      lastName: "Petrov",
+      birthDate: "—",
+      baptismDate: "2026-06-12",
+      birthplace: "—",
+      entryType: "—",
+      sponsors: "—",
+      parents: "—",
     });
+  });
+
+  it("maps baptism list columns from API row", () => {
+    const row = mapRowToSacramentalRecord(
+      {
+        id: 1049,
+        first_name: "James Mastrella",
+        last_name: "Presti",
+        birth_date: null,
+        reception_date: "3026-05-24",
+        birthplace: "Trenton",
+        entry_type: "Baptism",
+        sponsors: "John Doe",
+        parents: "Jane Doe",
+        clergy: "Rev. James Parsells",
+        status: "active",
+      },
+      "baptism",
+    );
+    expect(row?.firstName).toBe("James Mastrella");
+    expect(row?.baptismDate).toBe("3026-05-24");
+    expect(row?.entryType).toBe("Baptism");
+    expect(row?.clergy).toBe("Rev. James Parsells");
   });
 
   it("maps marriage pair label", () => {

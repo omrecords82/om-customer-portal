@@ -11,6 +11,15 @@ export type SacramentalRecord = {
   readonly date: string;
   readonly clergy: string;
   readonly status: "draft" | "complete" | "needs-review";
+  /** Baptism list columns — populated when `type === "baptism"`. */
+  readonly firstName?: string;
+  readonly lastName?: string;
+  readonly birthDate?: string;
+  readonly baptismDate?: string;
+  readonly birthplace?: string;
+  readonly entryType?: string;
+  readonly sponsors?: string;
+  readonly parents?: string;
 };
 
 export const RECORD_TYPE_LABEL: Record<RecordType, string> = {

@@ -158,6 +158,11 @@ function eventDateFromRow(row: Record<string, unknown>, type: RecordType): strin
   return formatListDate(row.reception_date ?? row.dateOfBaptism);
 }
 
+function listText(value: unknown): string {
+  const trimmed = asString(value).trim();
+  return trimmed || "—";
+}
+
 /** Map one API row into portal list model (pure). */
 export function mapRowToSacramentalRecord(
   row: Record<string, unknown>,
@@ -165,13 +170,28 @@ export function mapRowToSacramentalRecord(
 ): SacramentalRecord | null {
   const id = asNumber(row.id);
   if (id == null || id <= 0) return null;
-  return {
+
+  const base: SacramentalRecord = {
     id: `${type}:${String(id)}`,
     type,
     personName: personNameFromRow(row, type),
     date: eventDateFromRow(row, type),
-    clergy: asString(row.clergy ?? row.priest).trim() || "—",
+    clergy: listText(row.clergy ?? row.priest),
     status: mapRecordStatus(row.status),
+  };
+
+  if (type !== "baptism") return base;
+
+  return {
+    ...base,
+    firstName: listText(row.first_name ?? row.firstName),
+    lastName: listText(row.last_name ?? row.lastName),
+    birthDate: formatListDate(row.birth_date ?? row.dateOfBirth ?? row.birthDate),
+    baptismDate: formatListDate(row.reception_date ?? row.dateOfBaptism),
+    birthplace: listText(row.birthplace ?? row.placeOfBirth),
+    entryType: listText(row.entry_type ?? row.entryType),
+    sponsors: listText(row.sponsors ?? row.godparentNames),
+    parents: listText(row.parents),
   };
 }
 

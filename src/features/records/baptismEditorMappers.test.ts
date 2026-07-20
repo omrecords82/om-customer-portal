@@ -4,8 +4,11 @@ import {
   baptismRowToFormState,
   formStateToCreatePayload,
   formStateToUpdatePayload,
+  normalizeBaptismStatus,
   normalizeDateInput,
   parseBaptismRecordId,
+  parseBaptismRowFromApi,
+  todayIsoDate,
   validateBaptismFormForCreate,
   validateBaptismFormForUpdate,
 } from "./baptismEditorMappers";
@@ -26,7 +29,7 @@ describe("baptismEditorMappers", () => {
       birth_date: "2019-05-01",
       reception_date: "2019-06-01",
       birthplace: "St. Nicholas Church",
-      entry_type: "Infant",
+      entry_type: "Chrismation",
       sponsors: "John & Mary",
       parents: "George Smith",
       clergy: "Fr. James",
@@ -34,7 +37,73 @@ describe("baptismEditorMappers", () => {
     });
     expect(form.first_name).toBe("Anna");
     expect(form.birth_date).toBe("2019-05-01");
+    expect(form.entry_type).toBe("Chrismation");
     expect(form.clergy).toBe("Fr. James");
+  });
+
+  it("parses legacy OM rows with active status and empty last_name/clergy", () => {
+    const row = parseBaptismRowFromApi({
+      id: 607,
+      churchId: "46",
+      firstName: "Stanislaus",
+      lastName: "",
+      priest: "",
+      status: "active",
+      entryType: "Baptism",
+    });
+    expect(row?.id).toBe(607);
+    expect(row?.church_id).toBe(46);
+    expect(row?.first_name).toBe("Stanislaus");
+    expect(row?.last_name).toBe("");
+    expect(row?.clergy).toBe("");
+    expect(row?.status).toBe("Recorded");
+    expect(normalizeBaptismStatus("active")).toBe("Recorded");
+  });
+
+  it("rejects future birth and reception dates on save", () => {
+    const farFuture = `${String(Number(todayIsoDate().slice(0, 4)) + 1000)}-05-04`;
+    expect(
+      validateBaptismFormForCreate({
+        first_name: "James",
+        last_name: "Presti",
+        birth_date: farFuture,
+        reception_date: "",
+        birthplace: "",
+        entry_type: "Baptism",
+        sponsors: "",
+        parents: "",
+        clergy: "Fr. James",
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateBaptismFormForUpdate({
+        first_name: "James",
+        last_name: "Presti",
+        birth_date: "",
+        reception_date: farFuture,
+        birthplace: "",
+        entry_type: "Baptism",
+        sponsors: "",
+        parents: "",
+        clergy: "Fr. James",
+      }).message,
+    ).toMatch(/cannot be in the future/i);
+  });
+
+  it("rejects invalid entry type values", () => {
+    expect(
+      validateBaptismFormForUpdate({
+        first_name: "Anna",
+        last_name: "Smith",
+        birth_date: "",
+        reception_date: "",
+        birthplace: "",
+        entry_type: "Infant",
+        sponsors: "",
+        parents: "",
+        clergy: "Fr. James",
+      }).message,
+    ).toMatch(/Baptism or Chrismation/i);
   });
 
   it("builds create payload with session church_id via contracts parser", () => {

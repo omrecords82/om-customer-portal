@@ -2,6 +2,7 @@ import {
   Alert,
   Autocomplete,
   Group,
+  Select,
   SimpleGrid,
   Stack,
   Text,
@@ -26,10 +27,13 @@ import {
 } from "./baptismEditorApi";
 import { BaptismHistoryPanel } from "./BaptismHistoryPanel";
 import {
+  BAPTISM_ENTRY_TYPE_OPTIONS,
   EMPTY_BAPTISM_FORM,
   formStateToCreatePayload,
   formStateToUpdatePayload,
+  normalizeBaptismEntryType,
   normalizeDateInput,
+  todayIsoDate,
   validateBaptismFormForCreate,
   validateBaptismFormForUpdate,
   type BaptismFormState,
@@ -85,7 +89,9 @@ export function BaptismEditorPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const maxDate = todayIsoDate();
 
   const [clergyOptions, setClergyOptions] = useState<string[]>([]);
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
@@ -135,13 +141,13 @@ export function BaptismEditorPage() {
 
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setLoadError(null);
 
     void fetchBaptismRecord(churchId, numericId).then((result) => {
       if (cancelled) return;
       setLoading(false);
       if (!result.ok) {
-        setError(result.message);
+        setLoadError(result.message);
         return;
       }
       setForm({
@@ -323,6 +329,11 @@ export function BaptismEditorPage() {
             Loading baptism record…
           </Text>
         ) : null}
+        {loadError ? (
+          <Alert color="red" title="Could not load record" role="alert">
+            {loadError}
+          </Alert>
+        ) : null}
         {error ? (
           <Alert color="red" title="Could not save" role="alert">
             {error}
@@ -356,6 +367,7 @@ export function BaptismEditorPage() {
                 label="Birth date"
                 type="date"
                 value={form.birth_date}
+                max={maxDate}
                 onChange={(event) => updateField("birth_date", event.currentTarget.value)}
                 required={mode === "create"}
               />
@@ -363,6 +375,7 @@ export function BaptismEditorPage() {
                 label="Reception / baptism date"
                 type="date"
                 value={form.reception_date}
+                max={maxDate}
                 onChange={(event) => updateField("reception_date", event.currentTarget.value)}
               />
             </SimpleGrid>
@@ -388,10 +401,15 @@ export function BaptismEditorPage() {
               limit={20}
             />
 
-            <TextField
+            <Select
               label="Entry type"
-              value={form.entry_type}
-              onValueChange={(value) => updateField("entry_type", value)}
+              placeholder="Select entry type"
+              data={[...BAPTISM_ENTRY_TYPE_OPTIONS]}
+              value={
+                normalizeBaptismEntryType(form.entry_type) || null
+              }
+              onChange={(value) => updateField("entry_type", value ?? "")}
+              clearable
             />
 
             <TextField

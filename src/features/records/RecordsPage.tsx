@@ -253,6 +253,7 @@ export function RecordsPage() {
         ? "mock data"
         : "no data";
 
+  const showBaptismColumns = typeFilter === "baptism";
   const showPagination =
     liveEligible &&
     typeFilter !== "all" &&
@@ -333,15 +334,32 @@ export function RecordsPage() {
           <Table striped highlightOnHover withTableBorder>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Person</Table.Th>
-                <Table.Th>Type</Table.Th>
-                <Table.Th>Date</Table.Th>
-                <Table.Th>Clergy</Table.Th>
-                <Table.Th>Status</Table.Th>
+                {showBaptismColumns ? (
+                  <>
+                    <Table.Th>#</Table.Th>
+                    <Table.Th>First Name</Table.Th>
+                    <Table.Th>Last Name</Table.Th>
+                    <Table.Th>Date of Birth</Table.Th>
+                    <Table.Th>Baptism Date</Table.Th>
+                    <Table.Th>Birthplace</Table.Th>
+                    <Table.Th>Entry Type</Table.Th>
+                    <Table.Th>Sponsors</Table.Th>
+                    <Table.Th>Parents</Table.Th>
+                    <Table.Th>Officiating Priest</Table.Th>
+                  </>
+                ) : (
+                  <>
+                    <Table.Th>Person</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Date</Table.Th>
+                    <Table.Th>Clergy</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                  </>
+                )}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filtered.map((record) => (
+              {filtered.map((record, index) => (
                 <Table.Tr
                   key={record.id}
                   style={
@@ -355,25 +373,70 @@ export function RecordsPage() {
                     }
                   }}
                 >
-                  <Table.Td>
-                    <Text size="sm" fw={500}>
-                      {record.personName}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{RECORD_TYPE_LABEL[record.type]}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{record.date}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{record.clergy}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge variant="light" color={STATUS_COLOR[record.status]}>
-                      {record.status}
-                    </Badge>
-                  </Table.Td>
+                  {showBaptismColumns && record.type === "baptism" ? (
+                    <>
+                      <Table.Td>
+                        <Text size="sm">{String((page - 1) * PAGE_SIZE + index + 1)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.firstName ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.lastName ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.birthDate ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.baptismDate ?? record.date}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.birthplace ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.entryType ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.sponsors ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.parents ?? "—"}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.clergy}</Text>
+                      </Table.Td>
+                    </>
+                  ) : showBaptismColumns ? (
+                    <>
+                      <Table.Td colSpan={10}>
+                        <Text size="sm" c="dimmed">
+                          Non-baptism row in baptism filter
+                        </Text>
+                      </Table.Td>
+                    </>
+                  ) : (
+                    <>
+                      <Table.Td>
+                        <Text size="sm" fw={500}>
+                          {record.personName}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{RECORD_TYPE_LABEL[record.type]}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.date}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{record.clergy}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge variant="light" color={STATUS_COLOR[record.status]}>
+                          {record.status}
+                        </Badge>
+                      </Table.Td>
+                    </>
+                  )}
                 </Table.Tr>
               ))}
             </Table.Tbody>

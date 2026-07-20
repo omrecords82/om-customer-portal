@@ -59,4 +59,23 @@ describe("baptismEditorApi helpers", () => {
     expect(row?.id).toBe(7);
     expect(row?.first_name).toBe("Anna");
   });
+
+  it("unwraps legacy active-status rows for editor load", () => {
+    const row = unwrapSingleBaptismRecord({
+      success: true,
+      data: {
+        id: 1049,
+        churchId: "46",
+        firstName: "James Mastrella",
+        lastName: "Presti",
+        dateOfBaptism: "3026-05-24",
+        priest: "Rev. James Parsells",
+        entryType: "Baptism",
+        status: "active",
+      },
+    });
+    expect(row?.id).toBe(1049);
+    expect(row?.status).toBe("Recorded");
+    expect(row?.reception_date).toBe("3026-05-24");
+  });
 });
