@@ -12,19 +12,26 @@ import {
 } from "@mantine/core";
 import { AlertDialog } from "@om/ui/alert-dialog";
 import { Button } from "@om/ui/button";
+import { IconButton } from "@om/ui/icon-button";
 import { Switch } from "@om/ui/switch";
 import { Table } from "@om/ui/table";
+import { Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { authMode } from "../../auth/config";
 import { PageLayout } from "../../components/PageLayout";
 import { canEditChurchSettings } from "../settings/settingsApi";
+import { ClergyEntityDialog } from "./ClergyEntityDialog";
+import { ClergyImportDialog } from "./ClergyImportDialog";
+import { EntitySplitDialog } from "./EntitySplitDialog";
+import { LocationEntityDialog } from "./LocationEntityDialog";
+import { RuleEditorDialog } from "./RuleEditorDialog";
 import {
   acceptClergyDiscovery,
   acceptLocationDiscovery,
-  createOcrRule,
   defaultOcrChurchSettings,
+  deleteOcrConfigEntity,
   deleteOcrRule,
   discoverClergy,
   discoverLocations,
@@ -34,11 +41,11 @@ import {
   isSystemRule,
   mergeClergyEntities,
   mergeLocationEntities,
-  parseClergyVariants,
   parseLocationMetadata,
-  patchOcrConfigEntity,
   patchOcrRule,
   saveOcrChurchSettings,
+  splitClergyEntity as splitClergyEntityApi,
+  splitLocationEntity as splitLocationEntityApi,
   syncChurchLocationFromParish,
   type ClergyDiscoveryGroup,
   type LocationDiscoveryGroup,
@@ -48,6 +55,11 @@ import {
   type RuleTableRow,
   type EntityTableRow,
 } from "./ocrSettingsApi";
+import {
+  formatVariantChipLabel,
+  isTenantDefaultLocation,
+  parseClergyVariantsUi,
+} from "./ocrSettingsHelpers";
 
 function entityIsActive(entity: OcrConfigEntity): boolean {
   return entity.is_active !== false && entity.is_active !== 0;
@@ -83,6 +95,22 @@ export function OcrSettingsPage() {
   const [selectedClergyIds, setSelectedClergyIds] = useState<number[]>([]);
   const [selectedLocationIds, setSelectedLocationIds] = useState<number[]>([]);
 
+  const [clergyDialogOpen, setClergyDialogOpen] = useState(false);
+  const [editingClergy, setEditingClergy] = useState<OcrConfigEntity | null>(null);
+  const [clergyImportOpen, setClergyImportOpen] = useState(false);
+  const [clergySplitOpen, setClergySplitOpen] = useState(false);
+  const [mergeClergyOpen, setMergeClergyOpen] = useState(false);
+
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<OcrConfigEntity | null>(null);
+  const [locationSplitOpen, setLocationSplitOpen] = useState(false);
+  const [mergeLocationOpen, setMergeLocationOpen] = useState(false);
+
+  const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<OcrParishRule | null>(null);
+
+  const [deleteEntityTarget, setDeleteEntityTarget] = useState<OcrConfigEntity | null>(null);
+
   const clergyEntities = useMemo(
     () => entities.filter((e) => e.entity_type === "clergy" && entityIsActive(e)),
     [entities],
@@ -90,6 +118,23 @@ export function OcrSettingsPage() {
   const locationEntities = useMemo(
     () => entities.filter((e) => e.entity_type === "location" && entityIsActive(e)),
     [entities],
+  );
+
+  const mergeClergyTarget = useMemo(
+    () => clergyEntities.find((e) => e.id === selectedClergyIds[0]) ?? null,
+    [clergyEntities, selectedClergyIds],
+  );
+  const mergeLocationTarget = useMemo(
+    () => locationEntities.find((e) => e.id === selectedLocationIds[0]) ?? null,
+    [locationEntities, selectedLocationIds],
+  );
+  const splitClergyTarget = useMemo(
+    () => clergyEntities.find((e) => e.id === selectedClergyIds[0]) ?? null,
+    [clergyEntities, selectedClergyIds],
+  );
+  const splitLocationEntityRow = useMemo(
+    () => locationEntities.find((e) => e.id === selectedLocationIds[0]) ?? null,
+    [locationEntities, selectedLocationIds],
   );
 
   const ruleTableRows = useMemo<RuleTableRow[]>(
@@ -134,6 +179,16 @@ export function OcrSettingsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- external OCR settings bootstrap
     void loadAll();
   }, [loadAll]);
+
+  function reportError(message: string) {
+    setStatus(null);
+    setError(message);
+  }
+
+  function reportSuccess(message: string) {
+    setError(null);
+    setStatus(message);
+  }
 
   async function saveDocuments() {
     if (!churchId) return;
@@ -182,7 +237,7 @@ export function OcrSettingsPage() {
       setStatus(result.message);
       return;
     }
-    setStatus(result.data.message);
+    reportSuccess(result.data.message);
     void loadAll();
   }
 
@@ -206,45 +261,87 @@ export function OcrSettingsPage() {
       setStatus(result.message);
       return;
     }
-    setStatus(result.data.message);
+    reportSuccess(result.data.message);
     void loadAll();
   }
 
-  async function deactivateEntity(entity: OcrConfigEntity) {
-    if (!churchId) return;
-    const result = await patchOcrConfigEntity(churchId, entity.id, { is_active: 0 });
+  async function confirmDeleteEntity() {
+    if (!churchId || !deleteEntityTarget) return;
+    const result = await deleteOcrConfigEntity(churchId, deleteEntityTarget.id);
+    setDeleteEntityTarget(null);
     if (!result.ok) {
-      setStatus(result.message);
+      reportError(result.message);
       return;
     }
+    reportSuccess("Configuration entity deleted.");
     void loadAll();
   }
 
-  async function mergeSelectedClergy() {
+  async function confirmMergeClergy() {
     if (!churchId || selectedClergyIds.length < 2) return;
-    const canonical = clergyEntities.find((e) => e.id === selectedClergyIds[0])?.canonical_value;
-    if (!canonical) return;
-    const result = await mergeClergyEntities(churchId, selectedClergyIds, canonical);
+    const targetId = selectedClergyIds[0];
+    if (targetId === undefined) return;
+    const sourceIds = selectedClergyIds.slice(1);
+    const result = await mergeClergyEntities(churchId, targetId, sourceIds);
+    setMergeClergyOpen(false);
     if (!result.ok) {
-      setStatus(result.message);
+      reportError(result.message);
       return;
     }
     setSelectedClergyIds([]);
-    setStatus("Clergy records merged.");
+    reportSuccess("Clergy records merged.");
     void loadAll();
   }
 
-  async function mergeSelectedLocations() {
+  async function confirmMergeLocations() {
     if (!churchId || selectedLocationIds.length < 2) return;
-    const canonical = locationEntities.find((e) => e.id === selectedLocationIds[0])?.canonical_value;
-    if (!canonical) return;
-    const result = await mergeLocationEntities(churchId, selectedLocationIds, canonical);
+    const targetId = selectedLocationIds[0];
+    if (targetId === undefined) return;
+    const sourceIds = selectedLocationIds.slice(1);
+    const result = await mergeLocationEntities(churchId, targetId, sourceIds);
+    setMergeLocationOpen(false);
     if (!result.ok) {
-      setStatus(result.message);
+      reportError(result.message);
       return;
     }
     setSelectedLocationIds([]);
-    setStatus("Locations merged.");
+    reportSuccess("Locations merged.");
+    void loadAll();
+  }
+
+  async function handleSplitClergy(variants: string[], canonicalValue: string) {
+    if (!churchId || !splitClergyTarget) return;
+    const result = await splitClergyEntityApi(churchId, {
+      source_id: splitClergyTarget.id,
+      variants,
+      canonical_value: canonicalValue,
+      role: splitClergyTarget.role ?? "Rector",
+    });
+    if (!result.ok) {
+      reportError(result.message);
+      return;
+    }
+    setClergySplitOpen(false);
+    setSelectedClergyIds([]);
+    reportSuccess("Clergy variants split into new tenure.");
+    void loadAll();
+  }
+
+  async function handleSplitLocation(variants: string[], canonicalValue: string) {
+    if (!churchId || !splitLocationEntityRow) return;
+    const result = await splitLocationEntityApi(churchId, {
+      source_id: splitLocationEntityRow.id,
+      variants,
+      canonical_value: canonicalValue,
+      location_type: splitLocationEntityRow.role ?? "Other",
+    });
+    if (!result.ok) {
+      reportError(result.message);
+      return;
+    }
+    setLocationSplitOpen(false);
+    setSelectedLocationIds([]);
+    reportSuccess("Location variants split.");
     void loadAll();
   }
 
@@ -252,29 +349,10 @@ export function OcrSettingsPage() {
     if (!churchId) return;
     const result = await syncChurchLocationFromParish(churchId);
     if (!result.ok) {
-      setStatus(result.message);
+      reportError(result.message);
       return;
     }
-    setStatus("Church location synced from parish settings.");
-    void loadAll();
-  }
-
-  async function addParishRule() {
-    if (!churchId) return;
-    const result = await createOcrRule(churchId, {
-      name: "Parish custom rule",
-      description: "Created from Portal2 OCR settings",
-      record_type: "baptism",
-      severity: "suggestion",
-      priority: 50,
-      conditions_json: { all: [{ field: "clergy", operator: "is_empty" }] },
-      actions_json: [{ type: "suggest_value", field: "clergy", auto_apply: false }],
-    });
-    if (!result.ok) {
-      setStatus(result.message);
-      return;
-    }
-    setStatus("Parish rule created — edit details in legacy studio until inline editor ships.");
+    reportSuccess("Church location synced from parish settings.");
     void loadAll();
   }
 
@@ -460,10 +538,17 @@ export function OcrSettingsPage() {
               <Stack gap="md">
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">
-                    System rules are read-only. Parish rules can be enabled, disabled, or removed.
+                    System rules are read-only. Parish rules can be created, edited, enabled, or removed.
                   </Text>
                   {editable ? (
-                    <Button className="om-btn-ghost" size="sm" onAction={() => void addParishRule()}>
+                    <Button
+                      className="om-btn-primary"
+                      size="sm"
+                      onAction={() => {
+                        setEditingRule(null);
+                        setRuleDialogOpen(true);
+                      }}
+                    >
                       Add parish rule
                     </Button>
                   ) : null}
@@ -527,19 +612,26 @@ export function OcrSettingsPage() {
                       header: "Actions",
                       renderCell: (row) =>
                         !isSystemRule(row.rule) && editable ? (
-                          <Button
-                            className="om-btn-ghost"
-                            size="sm"
-                            variant="secondary"
-                            onAction={() =>
-                              void deleteOcrRule(churchId, row.rule.id).then((r) => {
-                                if (!r.ok) setStatus(r.message);
-                                else void loadAll();
-                              })
-                            }
-                          >
-                            Delete
-                          </Button>
+                          <Group gap="xs">
+                            <IconButton
+                              accessibleLabel={`Edit rule ${row.rule.name}`}
+                              icon={<Pencil size={16} aria-hidden />}
+                              onAction={() => {
+                                setEditingRule(row.rule);
+                                setRuleDialogOpen(true);
+                              }}
+                            />
+                            <IconButton
+                              accessibleLabel={`Delete rule ${row.rule.name}`}
+                              icon={<Trash2 size={16} aria-hidden />}
+                              onAction={() =>
+                                void deleteOcrRule(churchId, row.rule.id).then((r) => {
+                                  if (!r.ok) reportError(r.message);
+                                  else void loadAll();
+                                })
+                              }
+                            />
+                          </Group>
                         ) : null,
                     },
                   ]}
@@ -550,27 +642,51 @@ export function OcrSettingsPage() {
 
             <Tabs.Panel value="clergy" pt="md">
               <Stack gap="md">
-                <Group>
+                <Group justify="space-between" align="flex-start">
+                  <Stack gap={4}>
+                    <Title order={5}>Parish clergy tenures</Title>
+                    <Text size="sm" c="dimmed">
+                      Discover clergy from sacrament records, normalize spellings, and configure active
+                      date ranges. Discovery results require confirmation before they are finalized.
+                    </Text>
+                  </Stack>
                   {editable ? (
-                    <>
-                      <Button className="om-btn-primary" size="sm" onAction={() => void runClergyDiscover()}>
-                        Rediscover from records
+                    <Group gap="xs">
+                      <Button className="om-btn-ghost" size="sm" onAction={() => void runClergyDiscover()}>
+                        Rediscover
                       </Button>
                       <Button
                         className="om-btn-ghost"
                         size="sm"
-                        onAction={() => void mergeSelectedClergy()}
+                        onAction={() => setMergeClergyOpen(true)}
                         isDisabled={selectedClergyIds.length < 2}
                       >
-                        Merge selected
+                        Merge
                       </Button>
-                    </>
+                      <Button
+                        className="om-btn-ghost"
+                        size="sm"
+                        onAction={() => setClergySplitOpen(true)}
+                        isDisabled={selectedClergyIds.length !== 1}
+                      >
+                        Split
+                      </Button>
+                      <Button className="om-btn-ghost" size="sm" onAction={() => setClergyImportOpen(true)}>
+                        Import
+                      </Button>
+                      <Button
+                        className="om-btn-primary"
+                        size="sm"
+                        onAction={() => {
+                          setEditingClergy(null);
+                          setClergyDialogOpen(true);
+                        }}
+                      >
+                        Add clergy
+                      </Button>
+                    </Group>
                   ) : null}
                 </Group>
-                <Text size="sm" c="dimmed">
-                  Canonical clergy names require priest/admin confirmation before discovery results
-                  are accepted. Shared across OCR and record editors.
-                </Text>
                 <Table
                   accessibleLabel="Parish clergy configuration"
                   emptyMessage="No clergy entities configured."
@@ -614,12 +730,12 @@ export function OcrSettingsPage() {
                       id: "variants",
                       header: "Variants",
                       renderCell: (row) => {
-                        const variants = parseClergyVariants(row.entity.variants_json);
+                        const variants = parseClergyVariantsUi(row.entity.variants_json);
                         return (
                           <Text size="xs" c="dimmed">
                             {variants
                               .slice(0, 3)
-                              .map((v) => `${v.value} (${String(v.count)})`)
+                              .map(formatVariantChipLabel)
                               .join(", ") || "—"}
                           </Text>
                         );
@@ -630,14 +746,21 @@ export function OcrSettingsPage() {
                       header: "Actions",
                       renderCell: (row) =>
                         editable ? (
-                          <Button
-                            className="om-btn-ghost"
-                            size="sm"
-                            variant="secondary"
-                            onAction={() => void deactivateEntity(row.entity)}
-                          >
-                            Deactivate
-                          </Button>
+                          <Group gap="xs">
+                            <IconButton
+                              accessibleLabel={`Edit ${row.entity.canonical_value}`}
+                              icon={<Pencil size={16} aria-hidden />}
+                              onAction={() => {
+                                setEditingClergy(row.entity);
+                                setClergyDialogOpen(true);
+                              }}
+                            />
+                            <IconButton
+                              accessibleLabel={`Delete ${row.entity.canonical_value}`}
+                              icon={<Trash2 size={16} aria-hidden />}
+                              onAction={() => setDeleteEntityTarget(row.entity)}
+                            />
+                          </Group>
                         ) : null,
                     },
                   ]}
@@ -648,26 +771,57 @@ export function OcrSettingsPage() {
 
             <Tabs.Panel value="locations" pt="md">
               <Stack gap="md">
-                <Group>
+                <Group justify="space-between" align="flex-start">
+                  <Stack gap={4}>
+                    <Title order={5}>Canonical locations</Title>
+                    <Text size="sm" c="dimmed">
+                      Tenant church and cemetery defaults plus discovered funeral burial locations with OCR
+                      variants.
+                    </Text>
+                  </Stack>
                   {editable ? (
-                    <>
-                      <Button className="om-btn-primary" size="sm" onAction={() => void runLocationDiscover()}>
-                        Rediscover burial locations
+                    <Group gap="xs">
+                      <Button className="om-btn-ghost" size="sm" onAction={() => void runLocationDiscover()}>
+                        Rediscover
                       </Button>
                       <Button className="om-btn-ghost" size="sm" onAction={() => void syncParishLocation()}>
-                        Sync church from parish settings
+                        Sync defaults
                       </Button>
                       <Button
                         className="om-btn-ghost"
                         size="sm"
-                        onAction={() => void mergeSelectedLocations()}
+                        onAction={() => setMergeLocationOpen(true)}
                         isDisabled={selectedLocationIds.length < 2}
                       >
-                        Merge selected
+                        Merge
                       </Button>
-                    </>
+                      <Button
+                        className="om-btn-ghost"
+                        size="sm"
+                        onAction={() => setLocationSplitOpen(true)}
+                        isDisabled={selectedLocationIds.length !== 1}
+                      >
+                        Split
+                      </Button>
+                      <Button className="om-btn-ghost" size="sm" isDisabled>
+                        Import
+                      </Button>
+                      <Button
+                        className="om-btn-primary"
+                        size="sm"
+                        onAction={() => {
+                          setEditingLocation(null);
+                          setLocationDialogOpen(true);
+                        }}
+                      >
+                        Add location
+                      </Button>
+                    </Group>
                   ) : null}
                 </Group>
+                <Text size="xs" c="dimmed">
+                  Location bulk import is not available — backend exposes clergy import only. Use Add location or Rediscover.
+                </Text>
                 <Table
                   accessibleLabel="Canonical locations"
                   emptyMessage="No location entities configured."
@@ -701,7 +855,7 @@ export function OcrSettingsPage() {
                       id: "type",
                       header: "Type",
                       renderCell: (row) =>
-                        parseLocationMetadata(row.entity.metadata_json).location_type ?? "Other",
+                        parseLocationMetadata(row.entity.metadata_json).location_type ?? row.entity.role ?? "Other",
                     },
                     {
                       id: "address",
@@ -719,12 +873,12 @@ export function OcrSettingsPage() {
                       id: "variants",
                       header: "Variants",
                       renderCell: (row) => {
-                        const variants = parseClergyVariants(row.entity.variants_json);
+                        const variants = parseClergyVariantsUi(row.entity.variants_json);
                         return (
                           <Text size="xs" c="dimmed">
                             {variants
                               .slice(0, 2)
-                              .map((v) => `${v.value} (${String(v.count)})`)
+                              .map(formatVariantChipLabel)
                               .join(", ") || "—"}
                           </Text>
                         );
@@ -735,14 +889,22 @@ export function OcrSettingsPage() {
                       header: "Actions",
                       renderCell: (row) =>
                         editable ? (
-                          <Button
-                            className="om-btn-ghost"
-                            size="sm"
-                            variant="secondary"
-                            onAction={() => void deactivateEntity(row.entity)}
-                          >
-                            Deactivate
-                          </Button>
+                          <Group gap="xs">
+                            <IconButton
+                              accessibleLabel={`Edit ${row.entity.canonical_value}`}
+                              icon={<Pencil size={16} aria-hidden />}
+                              onAction={() => {
+                                setEditingLocation(row.entity);
+                                setLocationDialogOpen(true);
+                              }}
+                            />
+                            <IconButton
+                              accessibleLabel={`Delete ${row.entity.canonical_value}`}
+                              icon={<Trash2 size={16} aria-hidden />}
+                              isDisabled={isTenantDefaultLocation(row.entity)}
+                              onAction={() => setDeleteEntityTarget(row.entity)}
+                            />
+                          </Group>
                         ) : null,
                     },
                   ]}
@@ -753,6 +915,66 @@ export function OcrSettingsPage() {
           </Tabs>
         )}
       </Stack>
+
+      <ClergyEntityDialog
+        churchId={churchId}
+        isOpen={clergyDialogOpen}
+        entity={editingClergy}
+        onOpenChange={setClergyDialogOpen}
+        onSaved={() => {
+          reportSuccess(editingClergy ? "Clergy updated." : "Clergy added.");
+          void loadAll();
+        }}
+        onError={reportError}
+      />
+
+      <LocationEntityDialog
+        churchId={churchId}
+        isOpen={locationDialogOpen}
+        entity={editingLocation}
+        onOpenChange={setLocationDialogOpen}
+        onSaved={() => {
+          reportSuccess(editingLocation ? "Location updated." : "Location added.");
+          void loadAll();
+        }}
+        onError={reportError}
+      />
+
+      <ClergyImportDialog
+        churchId={churchId}
+        isOpen={clergyImportOpen}
+        onOpenChange={setClergyImportOpen}
+        onImported={() => void loadAll()}
+        onError={reportError}
+      />
+
+      <RuleEditorDialog
+        churchId={churchId}
+        isOpen={ruleDialogOpen}
+        rule={editingRule}
+        onOpenChange={setRuleDialogOpen}
+        onSaved={() => {
+          reportSuccess(editingRule ? "Rule updated." : "Rule created.");
+          void loadAll();
+        }}
+        onError={reportError}
+      />
+
+      <EntitySplitDialog
+        isOpen={clergySplitOpen}
+        entity={splitClergyTarget}
+        entityLabel="clergy"
+        onOpenChange={setClergySplitOpen}
+        onConfirm={handleSplitClergy}
+      />
+
+      <EntitySplitDialog
+        isOpen={locationSplitOpen}
+        entity={splitLocationEntityRow}
+        entityLabel="location"
+        onOpenChange={setLocationSplitOpen}
+        onConfirm={handleSplitLocation}
+      />
 
       <AlertDialog
         isOpen={discoverClergyOpen}
@@ -774,6 +996,53 @@ export function OcrSettingsPage() {
         cancelLabel="Cancel"
         onConfirm={() => void confirmLocationDiscover()}
         onCancel={() => setDiscoverLocationOpen(false)}
+      />
+
+      <AlertDialog
+        isOpen={mergeClergyOpen}
+        onOpenChange={setMergeClergyOpen}
+        title="Merge clergy tenures"
+        description={
+          mergeClergyTarget
+            ? `Merge ${String(selectedClergyIds.length - 1)} selected tenure(s) into "${mergeClergyTarget.canonical_value}" (first selected row). Source rows will be deactivated.`
+            : "Select at least two clergy rows."
+        }
+        confirmLabel="Merge"
+        cancelLabel="Cancel"
+        onConfirm={() => void confirmMergeClergy()}
+        onCancel={() => setMergeClergyOpen(false)}
+      />
+
+      <AlertDialog
+        isOpen={mergeLocationOpen}
+        onOpenChange={setMergeLocationOpen}
+        title="Merge locations"
+        description={
+          mergeLocationTarget
+            ? `Merge ${String(selectedLocationIds.length - 1)} selected location(s) into "${mergeLocationTarget.canonical_value}" (first selected row).`
+            : "Select at least two locations."
+        }
+        confirmLabel="Merge"
+        cancelLabel="Cancel"
+        onConfirm={() => void confirmMergeLocations()}
+        onCancel={() => setMergeLocationOpen(false)}
+      />
+
+      <AlertDialog
+        isOpen={deleteEntityTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteEntityTarget(null);
+        }}
+        title="Delete configuration entity"
+        description={
+          deleteEntityTarget
+            ? `Permanently delete "${deleteEntityTarget.canonical_value}"? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={() => void confirmDeleteEntity()}
+        onCancel={() => setDeleteEntityTarget(null)}
       />
     </PageLayout>
   );

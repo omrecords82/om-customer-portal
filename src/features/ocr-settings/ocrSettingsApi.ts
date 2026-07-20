@@ -500,8 +500,8 @@ export async function acceptLocationDiscovery(
 
 export async function mergeClergyEntities(
   churchId: number,
-  entityIds: number[],
-  canonicalValue: string,
+  targetId: number,
+  sourceIds: number[],
 ): Promise<ApiResult<void>> {
   return ocrRequest(
     churchId,
@@ -509,7 +509,7 @@ export async function mergeClergyEntities(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entity_ids: entityIds, canonical_value: canonicalValue }),
+      body: JSON.stringify({ target_id: targetId, source_ids: sourceIds }),
     },
     () => undefined,
     "Could not merge clergy",
@@ -518,8 +518,8 @@ export async function mergeClergyEntities(
 
 export async function mergeLocationEntities(
   churchId: number,
-  entityIds: number[],
-  canonicalValue: string,
+  targetId: number,
+  sourceIds: number[],
 ): Promise<ApiResult<void>> {
   return ocrRequest(
     churchId,
@@ -527,11 +527,214 @@ export async function mergeLocationEntities(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entity_ids: entityIds, canonical_value: canonicalValue }),
+      body: JSON.stringify({ target_id: targetId, source_ids: sourceIds }),
     },
     () => undefined,
     "Could not merge locations",
   );
+}
+
+export async function splitClergyEntity(
+  churchId: number,
+  body: {
+    readonly source_id: number;
+    readonly variants: string[];
+    readonly canonical_value: string;
+    readonly role?: string;
+    readonly active_from?: string | null;
+    readonly active_to?: string | null;
+  },
+): Promise<ApiResult<{ readonly new_id: number }>> {
+  return ocrRequest(
+    churchId,
+    "/rules/config/clergy/split",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    (payload) => {
+      if (!payload || typeof payload !== "object") return { new_id: 0 };
+      return { new_id: Number((payload as Record<string, unknown>).new_id) };
+    },
+    "Could not split clergy",
+  );
+}
+
+export async function splitLocationEntity(
+  churchId: number,
+  body: {
+    readonly source_id: number;
+    readonly variants: string[];
+    readonly canonical_value: string;
+    readonly location_type?: string;
+  },
+): Promise<ApiResult<{ readonly new_id: number }>> {
+  return ocrRequest(
+    churchId,
+    "/rules/config/locations/split",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    (payload) => {
+      if (!payload || typeof payload !== "object") return { new_id: 0 };
+      return { new_id: Number((payload as Record<string, unknown>).new_id) };
+    },
+    "Could not split location",
+  );
+}
+
+export type ClergyImportRowPayload = {
+  readonly canonical_value: string;
+  readonly role?: string | null;
+  readonly active_from?: string | null;
+  readonly active_to?: string | null;
+  readonly variants_json?: string[];
+  readonly source_notes?: string | null;
+};
+
+export async function parseClergyImportText(
+  churchId: number,
+  text: string,
+  defaultRole: string,
+): Promise<ApiResult<ClergyImportRowPayload[]>> {
+  return ocrRequest(
+    churchId,
+    "/rules/config/entities/parse",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, default_role: defaultRole }),
+    },
+    (payload) => {
+      if (!payload || typeof payload !== "object") return [];
+      const rows = (payload as Record<string, unknown>).rows;
+      return Array.isArray(rows) ? (rows as ClergyImportRowPayload[]) : [];
+    },
+    "Could not parse clergy text",
+  );
+}
+
+export async function bulkImportClergyEntities(
+  churchId: number,
+  entities: ClergyImportRowPayload[],
+  options: { readonly skipDuplicates?: boolean; readonly defaultRole?: string },
+): Promise<ApiResult<{ readonly message: string; readonly created: number; readonly skipped: number }>> {
+  return ocrRequest(
+    churchId,
+    "/rules/config/entities/bulk",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entities,
+        skip_duplicates: options.skipDuplicates !== false,
+        default_role: options.defaultRole ?? "Rector",
+      }),
+    },
+    (payload) => {
+      const root = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+      return {
+        message: extractApiMessage(payload, "Import complete."),
+        created: Number(root.created ?? 0),
+        skipped: Number(root.skipped ?? 0),
+      };
+    },
+    "Could not import clergy",
+  );
+}
+
+export async function ocrExtractClergyFromImage(
+  churchId: number,
+  file: File,
+  defaultRole: string,
+): Promise<ApiResult<{ readonly rows: ClergyImportRowPayload[]; readonly text: string }>> {
+  if (!Number.isFinite(churchId) || churchId <= 0) {
+    return { ok: false, message: "No church context.", status: 400 };
+  }
+  if (authMode !== "live") {
+    return { ok: false, message: "OCR settings require live auth mode.", status: 400 };
+  }
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("default_role", defaultRole);
+    const res = await apiFetch(churchPath(churchId, "/rules/config/entities/ocr-extract"), {
+      method: "POST",
+      body: formData,
+    });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(payload, `OCR extraction failed (${String(res.status)}).`),
+        status: res.status,
+      };
+    }
+    const root = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const rows = Array.isArray(root.rows) ? (root.rows as ClergyImportRowPayload[]) : [];
+    return { ok: true, data: { rows, text: asString(root.text) } };
+  } catch {
+    return { ok: false, message: "Network error: OCR extraction failed.", status: 0 };
+  }
+}
+
+export type RuleTemplateKey = "default_value" | "validate_not_empty" | "validate_format";
+
+export function buildRulePayloadFromTemplate(form: {
+  readonly name: string;
+  readonly description: string;
+  readonly record_type: string;
+  readonly severity: OcrRuleSeverity;
+  readonly priority: number;
+  readonly rule_template: RuleTemplateKey;
+  readonly condition_field: string;
+  readonly action_field: string;
+  readonly action_value: string;
+}): { readonly conditions_json: unknown; readonly actions_json: unknown } | null {
+  const field = form.action_field || form.condition_field;
+  if (form.rule_template === "default_value") {
+    return {
+      conditions_json: { all: [{ field, operator: "is_empty" }] },
+      actions_json: [
+        {
+          type: "suggest_value",
+          field,
+          resolver: "literal_value",
+          resolver_args: { value: form.action_value },
+          auto_apply: true,
+          explanation_template: `Defaulted ${field} to "${form.action_value}". Change during review if needed.`,
+        },
+      ],
+    };
+  }
+  if (form.rule_template === "validate_not_empty") {
+    return {
+      conditions_json: { all: [{ field: form.condition_field, operator: "is_empty" }] },
+      actions_json: [
+        {
+          type: "block_record_completion",
+          field: form.condition_field,
+          explanation_template: `${form.condition_field} must not be empty.`,
+        },
+      ],
+    };
+  }
+  if (form.rule_template === "validate_format") {
+    return {
+      conditions_json: { all: [{ field: form.condition_field, operator: "regex_matches", value: form.action_value }] },
+      actions_json: [
+        {
+          type: "flag_warning",
+          field: form.condition_field,
+          explanation_template: `${form.condition_field} does not match expected format.`,
+        },
+      ],
+    };
+  }
+  return null;
 }
 
 export async function syncChurchLocationFromParish(churchId: number): Promise<ApiResult<void>> {
