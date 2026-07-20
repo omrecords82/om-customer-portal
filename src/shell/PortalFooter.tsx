@@ -1,5 +1,9 @@
 import { Box, Group, Text } from "@mantine/core";
 
+import {
+  formatParishJurisdictionLine,
+  formatParishLocationLine,
+} from "../features/settings/parishSettingsValidation";
 import { useParishProfile } from "./ParishProfileProvider";
 
 export function PortalFooter() {
@@ -25,7 +29,7 @@ export function PortalFooter() {
             {parish.name}
           </Text>
           <Text size="xs" c="dimmed" mt={2}>
-            {parish.location} · {parish.diocese}
+            {formatParishLocationLine(parish)} · {formatParishJurisdictionLine(parish)}
           </Text>
           {note ? (
             <Text size="xs" c="dimmed" mt={4}>

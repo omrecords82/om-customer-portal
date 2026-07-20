@@ -1,6 +1,7 @@
 import { apiFetch } from "../../auth/apiFetch";
 import { authMode } from "../../auth/config";
 import type {
+  JurisdictionOption,
   NotificationPrefs,
   OcrPrefs,
   ParishProfile,
@@ -176,51 +177,135 @@ export function formatChurchLocation(settings: Record<string, unknown>): string 
   return city || state || asString(settings.address);
 }
 
+function asNullableNumber(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function churchSettingsToParishProfile(
   settings: Record<string, unknown>,
 ): ParishProfile {
+  const jurisdictionName =
+    asString(settings.jurisdiction_name) ||
+    asString(settings.jurisdiction) ||
+    DEFAULT_PARISH.jurisdictionName;
+  const jurisdictionId = asNullableNumber(settings.jurisdiction_id);
+  const calendarFromJurisdiction = asString(settings.jurisdiction_calendar_type);
+  const calendarType =
+    calendarFromJurisdiction ||
+    asString(settings.calendar_type) ||
+    DEFAULT_PARISH.calendarType;
+
   return {
     name: getChurchDisplayName(settings) || DEFAULT_PARISH.name,
     shortName: asString(settings.short_name) || DEFAULT_PARISH.shortName,
-    location: formatChurchLocation(settings) || DEFAULT_PARISH.location,
-    diocese:
-      asString(settings.jurisdiction_name) ||
-      asString(settings.jurisdiction) ||
-      DEFAULT_PARISH.diocese,
-    phone: asString(settings.phone) || DEFAULT_PARISH.phone,
     email: asString(settings.email) || DEFAULT_PARISH.email,
+    phone: asString(settings.phone) || DEFAULT_PARISH.phone,
     website: asString(settings.website) || DEFAULT_PARISH.website,
-  };
-}
-
-/** Split "City, State" into API fields; single token goes to city. */
-export function parishLocationToApiFields(location: string): {
-  readonly city: string;
-  readonly state_province: string;
-} {
-  const trimmed = location.trim();
-  if (!trimmed) return { city: "", state_province: "" };
-  const comma = trimmed.indexOf(",");
-  if (comma < 0) return { city: trimmed, state_province: "" };
-  return {
-    city: trimmed.slice(0, comma).trim(),
-    state_province: trimmed.slice(comma + 1).trim(),
+    address: asString(settings.address) || DEFAULT_PARISH.address,
+    city: asString(settings.city) || DEFAULT_PARISH.city,
+    stateProvince: asString(settings.state_province) || DEFAULT_PARISH.stateProvince,
+    postalCode: asString(settings.postal_code) || DEFAULT_PARISH.postalCode,
+    country: asString(settings.country) || DEFAULT_PARISH.country,
+    jurisdictionId,
+    jurisdictionName,
+    calendarType,
+    preferredLanguage: asString(settings.preferred_language) || DEFAULT_PARISH.preferredLanguage,
   };
 }
 
 export function parishProfileToChurchPayload(
   profile: ParishProfile,
-): Record<string, string> {
-  const { city, state_province } = parishLocationToApiFields(profile.location);
-  return {
+): Record<string, string | number | null> {
+  const payload: Record<string, string | number | null> = {
     name: profile.name.trim(),
     short_name: profile.shortName.trim(),
-    city,
-    state_province,
-    jurisdiction: profile.diocese.trim(),
-    phone: profile.phone.trim(),
     email: profile.email.trim(),
+    phone: profile.phone.trim(),
     website: profile.website.trim(),
+    address: profile.address.trim(),
+    city: profile.city.trim(),
+    state_province: profile.stateProvince.trim(),
+    postal_code: profile.postalCode.trim(),
+    country: profile.country.trim(),
+    preferred_language: profile.preferredLanguage.trim() || "en",
+    jurisdiction: profile.jurisdictionName.trim(),
+    jurisdiction_id: profile.jurisdictionId,
+  };
+  return payload;
+}
+
+export function parseJurisdictionsResponse(payload: unknown): JurisdictionOption[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  const items = root.items;
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+    .map((row) => ({
+      id: Number(row.id),
+      name: asString(row.name),
+      abbreviation: asString(row.abbreviation),
+      calendarType: asString(row.calendar_type),
+    }))
+    .filter((row) => Number.isFinite(row.id) && row.name.length > 0);
+}
+
+export type FetchJurisdictionsResult =
+  | { readonly ok: true; readonly jurisdictions: readonly JurisdictionOption[] }
+  | { readonly ok: false; readonly message: string; readonly status: number };
+
+/** GET /api/jurisdictions — reference list for parish liturgical settings. */
+export async function fetchJurisdictions(): Promise<FetchJurisdictionsResult> {
+  if (authMode !== "live") {
+    return {
+      ok: true,
+      jurisdictions: [
+        {
+          id: 1,
+          name: "Diocese of New York & New Jersey",
+          abbreviation: "OCA-NY-NJ",
+          calendarType: "Revised Julian",
+        },
+      ],
+    };
+  }
+
+  try {
+    const res = await apiFetch("/api/jurisdictions", { method: "GET" });
+    const payload: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: extractApiMessage(payload, `Jurisdictions unavailable (${String(res.status)}).`),
+        status: res.status,
+      };
+    }
+    return { ok: true, jurisdictions: parseJurisdictionsResponse(payload) };
+  } catch {
+    return { ok: false, message: "Network error loading jurisdictions.", status: 0 };
+  }
+}
+
+/** Apply jurisdiction picker selection to parish profile (calendar derived read-only). */
+export function applyJurisdictionSelection(
+  profile: ParishProfile,
+  jurisdiction: JurisdictionOption | null,
+): ParishProfile {
+  if (!jurisdiction) {
+    return {
+      ...profile,
+      jurisdictionId: null,
+      jurisdictionName: "",
+      calendarType: "",
+    };
+  }
+  return {
+    ...profile,
+    jurisdictionId: jurisdiction.id,
+    jurisdictionName: jurisdiction.name,
+    calendarType: jurisdiction.calendarType,
   };
 }
 

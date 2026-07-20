@@ -22,6 +22,8 @@ import { OnboardingRecordLayoutsPage } from "../features/onboard/OnboardingRecor
 import { OnboardingRecordTablesPage } from "../features/onboard/OnboardingRecordTablesPage";
 import { OcrMobilePage } from "../features/ocr-mobile/OcrMobilePage";
 import { OcrDesktopPage } from "../features/ocr-desktop/OcrDesktopPage";
+import { OcrSettingsPage } from "../features/ocr-settings/OcrSettingsPage";
+import { RecordFieldsPage } from "../features/record-fields/RecordFieldsPage";
 import { AccountPage } from "../features/account/AccountPage";
 import { ParishSettingsPage } from "../features/settings/ParishSettingsPage";
 import { ParishUsersPage } from "../features/settings/ParishUsersPage";
@@ -82,6 +84,7 @@ const router = createBrowserRouter(
         { path: "records/baptism/:recordId/edit", element: <BaptismEditorPage /> },
         { path: "ocr", element: <OcrDesktopPage /> },
         { path: "ocr/mobile", element: <OcrMobilePage /> },
+        { path: "ocr/settings", element: <OcrSettingsPage /> },
         { path: "metrics", element: <MetricsPage /> },
         { path: "cemetery", element: <CemeteryPage /> },
         { path: "certificates", element: <CertificatesPage /> },
@@ -92,6 +95,7 @@ const router = createBrowserRouter(
         { path: "settings/parish", element: <ParishSettingsPage /> },
         { path: "settings/users", element: <ParishUsersPage /> },
         { path: "settings/preferences", element: <PreferencesPage /> },
+        { path: "settings/record-fields", element: <RecordFieldsPage /> },
         { path: "help", element: <HelpPage /> },
         { path: "account", element: <AccountPage /> },
         {

@@ -1,11 +1,36 @@
+/** ISO 639-1 language codes for parish preferred language (legacy parity). */
+export const PARISH_LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "gr", label: "Greek" },
+  { value: "ru", label: "Russian" },
+  { value: "ro", label: "Romanian" },
+  { value: "ka", label: "Georgian" },
+  { value: "zh", label: "Chinese (Traditional)" },
+] as const;
+
 export type ParishProfile = {
   readonly name: string;
   readonly shortName: string;
-  readonly location: string;
-  readonly diocese: string;
-  readonly phone: string;
   readonly email: string;
+  readonly phone: string;
   readonly website: string;
+  readonly address: string;
+  readonly city: string;
+  readonly stateProvince: string;
+  readonly postalCode: string;
+  readonly country: string;
+  readonly jurisdictionId: number | null;
+  readonly jurisdictionName: string;
+  /** Read-only when derived from jurisdiction reference table. */
+  readonly calendarType: string;
+  readonly preferredLanguage: string;
+};
+
+export type JurisdictionOption = {
+  readonly id: number;
+  readonly name: string;
+  readonly abbreviation: string;
+  readonly calendarType: string;
 };
 
 export type ParishUserStatus = "active" | "invited" | "disabled" | "pending";
@@ -46,11 +71,18 @@ export type UserSession = {
 export const DEFAULT_PARISH: ParishProfile = {
   name: "Saints Peter and Paul Orthodox Church",
   shortName: "Sts. Peter & Paul",
-  location: "Manville, New Jersey",
-  diocese: "Diocese of New York & New Jersey",
-  phone: "(908) 555-0142",
   email: "office@stspp.example",
+  phone: "(908) 555-0142",
   website: "https://stspp.example",
+  address: "920 Hamilton Street",
+  city: "Manville",
+  stateProvince: "NJ",
+  postalCode: "08835",
+  country: "United States",
+  jurisdictionId: null,
+  jurisdictionName: "Diocese of New York & New Jersey",
+  calendarType: "Revised Julian",
+  preferredLanguage: "en",
 };
 
 export const MOCK_PARISH_USERS: readonly ParishUser[] = [

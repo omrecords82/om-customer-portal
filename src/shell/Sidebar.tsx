@@ -3,6 +3,10 @@ import { Link } from "react-aria-components";
 import { useLocation } from "react-router";
 import { PORTAL_NAV } from "../config/navConfig";
 import { useParishProfile } from "./ParishProfileProvider";
+import {
+  formatParishJurisdictionLine,
+  formatParishLocationLine,
+} from "../features/settings/parishSettingsValidation";
 
 function OrthodoxCross() {
   return (
@@ -83,7 +87,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
               truncate
               style={{ color: "var(--om-sidebar-text-muted)", lineHeight: 1.3 }}
             >
-              {parish.location}
+              {formatParishLocationLine(parish)}
             </Text>
           </Box>
         </Group>
@@ -96,7 +100,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
             color: "var(--om-sidebar-text-faint)",
           }}
         >
-          {parish.diocese}
+          {formatParishJurisdictionLine(parish)}
         </Text>
         {note ? (
           <Text

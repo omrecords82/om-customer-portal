@@ -19,6 +19,7 @@ export type PortalHref =
   | "/records"
   | "/ocr"
   | "/ocr/mobile"
+  | "/ocr/settings"
   | "/metrics"
   | "/cemetery"
   | "/certificates"
@@ -27,7 +28,8 @@ export type PortalHref =
   | "/onboarding"
   | "/settings/parish"
   | "/settings/users"
-  | "/settings/preferences";
+  | "/settings/preferences"
+  | "/settings/record-fields";
 
 export type PortalNavItem = {
   readonly href: PortalHref;
@@ -71,6 +73,14 @@ export const PORTAL_NAV: readonly PortalNavItem[] = [
     icon: Smartphone,
     title: "OCR Mobile",
     description: "Mobile capture workflow for registry page uploads.",
+    showInSidebar: true,
+  },
+  {
+    href: "/ocr/settings",
+    label: "OCR settings",
+    icon: SlidersHorizontal,
+    title: "OCR settings",
+    description: "Rules engine, parish clergy, locations, and document retention.",
     showInSidebar: true,
   },
   {
@@ -130,6 +140,14 @@ export const PORTAL_NAV: readonly PortalNavItem[] = [
     showInSidebar: false,
   },
   {
+    href: "/settings/record-fields",
+    label: "Record fields",
+    icon: FileText,
+    title: "Record field mapping",
+    description: "Labels, visibility, and display order per sacramental record type.",
+    showInSidebar: true,
+  },
+  {
     href: "/help",
     label: "Help",
     icon: HelpCircle,
@@ -157,6 +175,8 @@ export const EXTRA_PAGE_TITLES: Readonly<Record<string, string>> = {
   "/onboarding/change-password": "Change password",
   "/onboarding/record-tables": "Record tables",
   "/onboarding/record-layouts": "Record layouts",
+  "/settings/record-fields": "Record field mapping",
+  "/ocr/settings": "OCR settings",
   "/auth/login": "Sign in",
   "/auth/forgot-password": "Forgot password",
   "/auth/unauthorized": "Not authorized",

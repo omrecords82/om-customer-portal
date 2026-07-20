@@ -11,16 +11,16 @@
 
 ## 1. Executive summary
 
-**Overall MVP parity estimate: ~68%** (live operational parity for Wave K Go/No-Go, not visual shell alone).
+**Overall MVP parity estimate: ~72%** (live operational parity for Wave K Go/No-Go, not visual shell alone).
 
 Portal2 has a production-ready shell, live auth for sole pilot tenant **`om_church_46`** (church **46**), live records **lists**, live OCR **upload/history**, certificate **generate/history**, hub KPIs, onboarding, and a **baptism editor** behind dual-run flag. Legacy `/portal` remains the fallback for marriage/funeral editors, OCR review/settings studio, full parish admin hub, assets, certificate designer, and several account-hub sub-surfaces.
 
 | Category | Approx. parity | Notes |
 |---|---:|---|
 | Auth & session | **95%** | Live pilot closed; global cutover deferred Wave K |
-| Account / parish settings | **55%** | Profile/sessions/users OK; **church-details field parity is the top operator gap** |
+| Account / parish settings | **78%** | Profile/sessions/users OK; church-details discrete fields **implemented 2026-07-19** — church 46 reload **unverified** |
 | Records (list + editors) | **62%** | Live lists + deep links; baptism editor shipped; marriage/funeral/chrismation gaps |
-| OCR (workflow + admin) | **52%** | Mobile/desktop upload MVP wired; **settings/review studio missing** |
+| OCR (workflow + admin) | **68%** | Mobile/desktop upload MVP wired; **`/portal2/ocr/settings` implemented 2026-07-19** — review studio still missing |
 | Certificates | **72%** | History + render live; designer/templates management deferred |
 | Hub / help / onboarding | **88%** | Live or honest empties; liturgical calendar post-MVP |
 | Metrics / charts | **65%** | KPI dashboard live; chart rendering deferred |
@@ -30,8 +30,8 @@ Portal2 has a production-ready shell, live auth for sole pilot tenant **`om_chur
 ### Critical gaps (P0 — block Wave K or daily parish ops on `/portal2`)
 
 1. **Marriage and funeral sacramental editors** — not started (`VITE_PORTAL_RECORDS_EDITOR_MARRIAGE/FUNERAL=false`).
-2. **Parish church-details field parity** — address decomposition + liturgical settings (operator screenshots).
-3. **OCR Settings admin console** — Documents / API / Rules / Parish Clergy / Locations (`/portal/ocr/settings`).
+2. ~~**Parish church-details field parity**~~ — **implemented** `/portal2/settings/parish` (address + jurisdiction + language); **church 46 persistence reload not verified**.
+3. ~~**OCR Settings admin console**~~ — **implemented** `/portal2/ocr/settings` (Documents, Rules, Clergy, Locations); inline rule/clergy/location editors **partial** vs legacy; **church 46 live smoke unverified**.
 4. **OCR in-portal review studio** — field review, crop/rotate, confirm-extract still legacy-only.
 5. **Baptism editor operator UI sign-off** — API smoke PASS; frjames UI CRUD/history/delete still unsigned.
 
@@ -64,12 +64,12 @@ The issues directory contains **6 operator screenshot files** (no separate `.md`
 
 | Issue file | Title (inferred) | Status in Portal2 | Priority |
 |---|---|---|---|
-| `screencapture-orthodoxmetrics-account-church-details-2026-07-19-22_40_28.png` | Legacy **Church Details** editable form (`/account/church-details`) — address + liturgical fields | **Partial** — `/portal2/settings/parish` has Edit/Save but **missing field parity** (see §5) | **P0** |
-| `screencapture-orthodoxmetrics-account-church-details-2026-07-19-22_52_32.png` | Same Church Details parity capture (duplicate evidence) | Same as above | **P0** |
-| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_38_19.png` | Legacy OCR Settings — **Documents** tab (processing, snippets, retention) | **Missing** — Portal2 has only autoseed toggle in `/settings/preferences` | **P0** |
-| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_33_14.png` | Legacy OCR Settings — **Parish Clergy** tenures (discover/merge/add) | **Missing** — no Portal2 route | **P0** |
-| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_35_42.png` | Legacy OCR Settings — **Rules Engine** (validation/inference rules) | **Missing** | **P1** |
-| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_34_53.png` | Legacy OCR Settings — **Locations** (canonical church/cemetery/burial) | **Missing** | **P0** |
+| `screencapture-orthodoxmetrics-account-church-details-2026-07-19-22_40_28.png` | Legacy **Church Details** editable form (`/account/church-details`) — address + liturgical fields | **Implemented (unverified)** — `/portal2/settings/parish` discrete address + jurisdiction picker + language (2026-07-19) | **P0 verify** |
+| `screencapture-orthodoxmetrics-account-church-details-2026-07-19-22_52_32.png` | Same Church Details parity capture (duplicate evidence) | Same as above | **P0 verify** |
+| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_38_19.png` | Legacy OCR Settings — **Documents** tab (processing, snippets, retention) | **Implemented (unverified)** — `/portal2/ocr/settings` Documents tab | **P0 verify** |
+| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_33_14.png` | Legacy OCR Settings — **Parish Clergy** tenures (discover/merge/add) | **Implemented (unverified)** — `/portal2/ocr/settings` Clergy tab | **P0 verify** |
+| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_35_42.png` | Legacy OCR Settings — **Rules Engine** (validation/inference rules) | **Implemented (unverified)** — `/portal2/ocr/settings` Rules tab | **P1 verify** |
+| `screencapture-orthodoxmetrics-portal-ocr-settings-2026-07-19-22_34_53.png` | Legacy OCR Settings — **Locations** (canonical church/cemetery/burial) | **Implemented (unverified)** — `/portal2/ocr/settings` Locations tab | **P0 verify** |
 
 **Issues files processed: 6**
 
@@ -87,7 +87,7 @@ Routes use production URLs; Portal2 basename is `/portal2`, legacy is `/portal`.
 | Password change | **Done** — dialog on Account page | — | Wave C | `PUT /api/user/profile/password` |
 | Active sessions list + revoke | **Done** — Account page | — | Wave B/C | `settingsApi.ts` sessions endpoints |
 | Parish info overview (membership, role, CRM) | **Partial** — parish fields on `/settings/parish` only | P2 | Wave C | Legacy `/account/parish` richer read-only hub |
-| Church details edit (address, liturgical) | **Gap** — `/portal2/settings/parish` | **P0** | Wave C | See §5; operator screenshots |
+| Church details edit (address, liturgical) | **Implemented (unverified)** — `/portal2/settings/parish` discrete fields + PUT payload (2026-07-19) | **P0 verify** | Wave C |
 | Branding (logo, colors) | **Missing** | P1 | Wave C / PM hub | Legacy `/account/branding` |
 | OCR preferences (language, preprocessing, retention) | **Partial** — autoseed only | **P0** | Wave C / F | Legacy `/account/ocr-preferences` + `/portal/ocr/settings` |
 | Notification prefs | **Partial** — digest + cert; OCR job alerts N/A live | P2 | Wave C | `PreferencesPage.tsx` |
@@ -126,7 +126,8 @@ Routes use production URLs; Portal2 basename is `/portal2`, legacy is `/portal`.
 | OCR mobile 4-phase capture | **Done** — `/portal2/ocr/mobile` | — | Wave BP | Operator visual QA approved |
 | Job history, polling, retry, seed, download | **Done** (live) | — | Wave BP | `ocrApi.ts` |
 | OCR review queue / per-job review | **Missing** | **P0** | Wave BP cutoff | Legacy `/portal/ocr/review/:churchId/:jobId` |
-| OCR Settings (Documents/API/Rules/Clergy/Locations) | **Missing** | **P0** | Operator issues | Legacy `/portal/ocr/settings`; Portal2 no equivalent route |
+| OCR Settings (Documents/API/Rules/Clergy/Locations) | **Implemented (unverified)** — `/portal2/ocr/settings` | **P0 verify** | Operator issues | Legacy `/portal/ocr/settings`; no provider/API tab (deferred) |
+| Record field mapping | **Implemented (unverified)** — `/portal2/settings/record-fields` | P1 verify | PM hub | API: `GET/PUT /api/church/:id/ocr/record-fields`; legacy was `/account/parish-management/record-settings` — **routing gap, not deleted API** |
 | Batch delete, QR pairing | **Missing** | P2 | `OCR_LIVE_CUTOFF_NOTES` | Documented deferred |
 | OCR setup wizard | **Missing** | P2 | Legacy `/portal/ocr/setup` | Staff-only legacy route |
 
@@ -315,12 +316,12 @@ Do **not** re-open these as gaps without new operator direction:
 | `/` | `HomePage` |
 | `/records` | `RecordsPage` |
 | `/records/baptism/new`, `/records/baptism/:recordId/edit` | `BaptismEditorPage` |
-| `/ocr`, `/ocr/mobile` | `OcrDesktopPage`, `OcrMobilePage` |
+| `/ocr`, `/ocr/mobile`, `/ocr/settings` | `OcrDesktopPage`, `OcrMobilePage`, `OcrSettingsPage` |
 | `/metrics` | `MetricsPage` |
 | `/cemetery` | `CemeteryPage` |
 | `/certificates` | `CertificatesPage` |
 | `/onboarding` (+ sub-routes) | Onboard wizard pages |
-| `/settings/parish`, `/settings/users`, `/settings/preferences` | Settings pages |
+| `/settings/parish`, `/settings/users`, `/settings/preferences`, `/settings/record-fields` | Settings pages |
 | `/account` | `AccountPage` |
 | `/help` | `HelpPage` |
 | `/auth/*` | Auth pages |
@@ -341,4 +342,4 @@ Do **not** re-open these as gaps without new operator direction:
 
 ---
 
-*Assessment generated 2026-07-19. Update when closing P0 packets or enabling new prod flags.*
+*Assessment generated 2026-07-19. Updated 2026-07-19 (Portal2 parish admin parity run — implemented / unverified flags).*

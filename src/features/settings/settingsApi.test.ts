@@ -21,11 +21,11 @@ import {
   parseSessionUserAgent,
   parseUserProfile,
   parseUserSessionsResponse,
-  parishLocationToApiFields,
   parishProfileToChurchPayload,
   portalOcrPrefsToApiUpdate,
   portalPrefsToNotificationUpdates,
 } from "./settingsApi";
+import { formatParishLocationLine } from "./parishSettingsValidation";
 
 describe("settingsApi helpers", () => {
   it("extracts API error messages from nested shapes", () => {
@@ -57,14 +57,21 @@ describe("settingsApi helpers", () => {
       short_name: "Holy Trinity",
       city: "Manville",
       state_province: "NJ",
+      address: "123 Main",
+      postal_code: "08835",
+      country: "US",
       jurisdiction_name: "Diocese of NY & NJ",
+      jurisdiction_id: 3,
+      jurisdiction_calendar_type: "Revised Julian",
+      preferred_language: "en",
       phone: "(908) 555-0142",
       email: "office@example.com",
       website: "https://example.com",
     });
     expect(profile.name).toBe("Holy Trinity Orthodox Church");
-    expect(profile.location).toBe("Manville, NJ");
-    expect(profile.diocese).toBe("Diocese of NY & NJ");
+    expect(profile.city).toBe("Manville");
+    expect(profile.jurisdictionName).toBe("Diocese of NY & NJ");
+    expect(formatParishLocationLine(profile)).toBe("Manville, NJ");
   });
 
   it("formats church location from city/state or address", () => {
@@ -74,25 +81,33 @@ describe("settingsApi helpers", () => {
     expect(formatChurchLocation({ address: "123 Main St" })).toBe("123 Main St");
   });
 
-  it("round-trips parish location for API payload", () => {
-    expect(parishLocationToApiFields("Manville, New Jersey")).toEqual({
-      city: "Manville",
-      state_province: "New Jersey",
-    });
+  it("builds full parish PUT payload", () => {
     expect(parishProfileToChurchPayload({
       name: "Test Church",
       shortName: "Test",
-      location: "Manville, NJ",
-      diocese: "Diocese",
-      phone: "555",
       email: "a@b.com",
+      phone: "555",
       website: "https://x.com",
+      address: "1 Main",
+      city: "Manville",
+      stateProvince: "NJ",
+      postalCode: "08835",
+      country: "US",
+      jurisdictionId: 1,
+      jurisdictionName: "Diocese",
+      calendarType: "Julian",
+      preferredLanguage: "en",
     })).toMatchObject({
       name: "Test Church",
       short_name: "Test",
       city: "Manville",
       state_province: "NJ",
+      address: "1 Main",
+      postal_code: "08835",
+      country: "US",
       jurisdiction: "Diocese",
+      jurisdiction_id: 1,
+      preferred_language: "en",
     });
   });
 

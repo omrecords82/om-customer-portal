@@ -253,6 +253,9 @@ Use existing exports for new portal screens. Do not rebuild these in-app.
 
 - [x] Profile / personal info / notifications — evidence: `settingsApi.ts` + `AccountPage` wire GET/PUT `/api/user/profile`, PUT `/api/user/profile/password`, GET/PUT `/api/notifications/preferences` (`weekly_digest`, `certificate_ready`) when `AUTH_MODE=live`; preview keeps honest local messaging
 - [x] Parish info / church details — evidence: `ParishSettingsPage` + `settingsApi.ts` wire GET/PUT `/api/my/church-settings` when live + church context; role-gated edit (`church_admin`, `priest`, etc.)
+- [x] **Parish church-details field parity (2026-07-19)** — **implemented** discrete address + jurisdiction picker (`GET /api/jurisdictions`) + calendar type (read-only) + preferred language; PUT sends `address`, `postal_code`, `country`, `jurisdiction_id`, `preferred_language`. Work ref: `PORTAL-WAVE-C-PARISH-PARITY`. **Verified on church 46: NO** (persistence/reload pending operator).
+- [x] **OCR Settings admin (2026-07-19)** — **implemented** `/portal2/ocr/settings` (Documents retention/processing, Rules, Clergy, Locations) via existing `/api/church/:id/ocr/*` routes. Work ref: `PORTAL-WAVE-C-OCR-SETTINGS`. **Verified on church 46: NO**.
+- [x] **Record field mapping (2026-07-19)** — **implemented** `/portal2/settings/record-fields` via `GET/PUT /api/church/:id/ocr/record-fields`. Legacy UI was `/account/parish-management/record-settings` (routing gap, API persisted). **Verified on church 46: NO**.
 - [x] Branding / OCR prefs (controls only; heavy editors later) — evidence: `PreferencesPage` + `settingsApi.ts` wire GET/PUT `/api/my/ocr-preferences` when `AUTH_MODE=live` + OCR admin role (`super_admin`, `admin`, `church_admin`); autoseed toggle maps to `useRecordSnippets`; review auto-open stays disabled (no API field); preview keeps honest local messaging
 - [x] Parish users list (semantic `@om/ui/table` + mock rows) — evidence: `ParishUsersPage` + `settingsApi.ts` wire GET `/api/admin/church-users/:churchId` + POST unlock when `AUTH_MODE=live` + parish staff role; preview keeps mock rows; invite + revoke CTAs gated (platform-admin APIs only)
 - [x] Shell parish chrome (Sidebar, PortalFooter, AuthLayout) — evidence: `ParishProfileProvider` + `fetchParishProfile` / GET `/api/my/church-settings` when `AUTH_MODE=live` + auth; preview/fetch-failure keep honest defaults + notes
@@ -452,13 +455,15 @@ Must support (under Customer Portal basename at cutover equivalent paths):
 - [x] Cemetery records/plots lists + deceased search (read MVP) — evidence: `cemeteryApi.ts` + `CemeteryPage` wire `GET /api/churches/:churchId/cemetery/plots` + `GET …/people/search` when `cemetery.enabled` and `AUTH_MODE=live` + churchId; preview stub otherwise; plot detail panel select; no geometry editing; no hard-coded church IDs
 - [x] Maintenance / reports navigation gated by flags — surfaces render only when `maintenanceEnabled` / `reportsEnabled` (default off)
 - [x] Feature-flag wiring: `cemetery.enabled` / `mapEnabled` / `maintenanceEnabled` / `reportsEnabled` (default off) — `cemeteryFlags.ts` + env overlays
+- [ ] **Cemetery enablement for church 46 on `/portal2`** — **OPEN / NOT done (2026-07-19).** Prod bake still `VITE_CEMETERY_ENABLED=false` + `VITE_CEMETERY_MAP_ENABLED=false` (handoff §3). MVP UI + flag plumbing are shipped; do **not** conflate with enablement. Work packet: `PORTAL-WAVE-G-CEMETERY-ENABLE` (after marriage/funeral path; church 46 only; geometry validated; no Wave K; do not flip with baptism dual-run without operator approval).
 - [x] Church metrics / charts chrome + live KPIs — evidence: `metricsApi.ts` + `MetricsPage` wire `GET /api/churches/:churchId/dashboard` (KPIs/labels) + optional `GET …/charts/summary` label notes when OM Charts enabled; chart libs deferred; honest empty/error when not live or missing churchId. **Polish (2026-07-19):** shared `fetchChurchDashboardJson` with hub; `metricsPresentation.ts` + `useMetricsDashboard`; SummaryCard/honest empties; source-module links (hub, records, certificates); Help metrics guide.
 - [ ] Liturgical calendar chrome — **POST-MVP** (in product; not a cutover blocker)
 
 **Dependencies:** Waves B, D, table patterns from C/E.  
 **Blockers for map:** validated per-church geometry + mappings; flags off until then. Geometry editing product freeze = MVP exclude.
 
-**DoD (cemetery MVP):** flags default off; enabled churches get read-only map + search/select/detail; no editing tools shipped as MVP.
+**DoD (cemetery MVP code):** flags default off; read-only map + search/select/detail shipped behind flags; no editing tools as MVP.  
+**DoD (cemetery enablement):** **NOT met** until church-46 `/portal2` bake turns `VITE_CEMETERY_*` on with operator-signed smoke — see open checkbox above.
 
 ---
 
