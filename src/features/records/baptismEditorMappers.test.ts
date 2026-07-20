@@ -86,24 +86,41 @@ describe("baptismEditorMappers", () => {
         sponsors: "",
         parents: "",
         clergy: "Fr. James",
-      }).message,
-    ).toMatch(/cannot be in the future/i);
+      }).ok,
+    ).toBe(false);
+    const futureUpdate = validateBaptismFormForUpdate({
+      first_name: "James",
+      last_name: "Presti",
+      birth_date: "",
+      reception_date: farFuture,
+      birthplace: "",
+      entry_type: "Baptism",
+      sponsors: "",
+      parents: "",
+      clergy: "Fr. James",
+    });
+    expect(futureUpdate.ok).toBe(false);
+    if (!futureUpdate.ok) {
+      expect(futureUpdate.message).toMatch(/cannot be in the future/i);
+    }
   });
 
   it("rejects invalid entry type values", () => {
-    expect(
-      validateBaptismFormForUpdate({
-        first_name: "Anna",
-        last_name: "Smith",
-        birth_date: "",
-        reception_date: "",
-        birthplace: "",
-        entry_type: "Infant",
-        sponsors: "",
-        parents: "",
-        clergy: "Fr. James",
-      }).message,
-    ).toMatch(/Baptism or Chrismation/i);
+    const invalidEntry = validateBaptismFormForUpdate({
+      first_name: "Anna",
+      last_name: "Smith",
+      birth_date: "",
+      reception_date: "",
+      birthplace: "",
+      entry_type: "Infant",
+      sponsors: "",
+      parents: "",
+      clergy: "Fr. James",
+    });
+    expect(invalidEntry.ok).toBe(false);
+    if (!invalidEntry.ok) {
+      expect(invalidEntry.message).toMatch(/Baptism or Chrismation/i);
+    }
   });
 
   it("builds create payload with session church_id via contracts parser", () => {

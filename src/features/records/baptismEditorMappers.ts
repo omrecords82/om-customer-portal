@@ -73,6 +73,12 @@ function coercePositiveInt(value: unknown): number | null {
   return null;
 }
 
+function coerceVerifiedBy(value: unknown): string | number | null | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string" || typeof value === "number") return value;
+  return undefined;
+}
+
 function nullableString(value: unknown): string | null {
   const trimmed = asString(value).trim();
   return trimmed === "" ? null : trimmed;
@@ -184,8 +190,7 @@ export function parseBaptismRowFromApi(raw: unknown): BaptismRecordRow | null {
     parents: nullableString(normalized.parents),
     clergy: asString(normalized.clergy).trim(),
     status: normalizeBaptismStatus(normalized.status),
-    verified_by:
-      normalized.verified_by == null ? undefined : normalized.verified_by,
+    verified_by: coerceVerifiedBy(normalized.verified_by),
     verified_at: nullableString(normalized.verified_at),
   };
 }
