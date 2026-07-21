@@ -1,5 +1,7 @@
 # Portal2 handoff checkpoint — 2026-07-19
 
+> **⛔ STOPPED / REMOVED from production (2026-07-21)** — Portal2 discontinued. See `docs/PORTAL2-REMOVED-2026-07-21.md`. **Historical only.**
+
 > **Purpose:** Operator handoff for continuing Customer Portal work on another machine / fresh Cursor session without losing context.  
 > **Checkpoint date:** 2026-07-19  
 > **OMBC:** `OMBC-20260718-165445-BD189C` · **OMD:** `PENDING_RECONCILIATION` (do not invent OMD IDs)  

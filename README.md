@@ -1,6 +1,22 @@
-# Orthodox Metrics Customer Portal
+# ⛔ ARCHIVED / STOPPED — Portal2 removed from production (2026-07-21)
 
-Greenfield parish end-user UI. Source of truth for the new portal experience; legacy `/portal` SPA remains in parallel during cutover.
+**Operator decision:** Portal2 (`/portal2`) is **no longer served** on Orthodox Metrics production. Do **not** run `pnpm deploy:static` or `./scripts/deploy-static.sh` against OM prod.
+
+| Item | Status |
+| --- | --- |
+| Production URL `/portal2` | **Removed** — nginx returns 404 |
+| Static deploy dir `/var/www/orthodoxmetrics/portal` | **Cleared** — archive at `prod/tmp/portal2-archive-20260721/` |
+| Legacy parish portal `/portal` | **Unchanged** — OM front-end SPA |
+| Baptism dual-run on `/portal2` | **Stopped** — no redeploy wiring |
+| This git repo | **Historical source only** — abandoned for prod cutover |
+
+See `docs/PORTAL2-REMOVED-2026-07-21.md` (if present) and `/var/www/orthodoxmetrics/prod/docs/PORTAL2-REMOVED-2026-07-21.md`.
+
+---
+
+# Orthodox Metrics Customer Portal (historical)
+
+Greenfield parish end-user UI. **Was** a parallel preview at `/portal2`; legacy `/portal` SPA remains the production parish portal.
 
 ## Requirements
 
@@ -23,51 +39,37 @@ pnpm install
 
 | Script | Purpose |
 | --- | --- |
-| `pnpm dev` | Vite dev server |
+| `pnpm dev` | Vite dev server (local only) |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | `tsc -b` |
 | `pnpm test` | Vitest |
 | `pnpm validate:deps` | Fail on prohibited UI libs |
 | `pnpm validate:auth-pilot` | Auth pilot env dry-run (no API calls) |
 | `pnpm build` | Production build |
-| `pnpm deploy:static` | Build `/portal2` + rsync to deploy dir |
+| ~~`pnpm deploy:static`~~ | **DISABLED for prod** — script exits with error |
 
-## Base path & deploy
+## Base path & deploy (historical)
 
-Preview URL: `https://orthodoxmetrics.com/portal2/`  
-Static output directory: `/var/www/orthodoxmetrics/portal`  
-Default env: `VITE_PORTAL_BASE_PATH=/portal2` (see `.env.example`)
+~~Preview URL: `https://orthodoxmetrics.com/portal2/`~~  
+~~Static output directory: `/var/www/orthodoxmetrics/portal`~~  
+Default env: `VITE_PORTAL_BASE_PATH=/portal2` (see `.env.example`) — local dev only.
 
-```bash
-pnpm deploy:static
-# or:
-VITE_PORTAL_BASE_PATH=/portal2 ./scripts/deploy-static.sh
-```
+**Do not deploy to production.** `scripts/deploy-static.sh` refuses to run unless `PORTAL2_DEPLOY_OVERRIDE=I_UNDERSTAND_ARCHIVED` is set (emergency archive recovery only).
 
 ## Auth modes (Wave B)
 
 | Env | Default | Meaning |
 | --- | --- | --- |
-| `VITE_PORTAL_AUTH_MODE` | `mock` | Local session for `/portal2` pilots |
+| `VITE_PORTAL_AUTH_MODE` | `mock` | Local session for dev |
 | `VITE_PORTAL_REQUIRE_AUTH` | `false` | When `true`, shell routes redirect to `/auth/login` |
 
-Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/api/auth/check`. Do **not** flip global login from `/portal` to `/portal2` without an explicit cutover decision.
+Live mode posts to OM `/api/auth/oidc/orthodoxmetrics/credentials` and checks `/api/auth/check`. Production auth pilot on `/portal2` is **stopped**.
 
-Per-tenant pilot enablement runbook: `docs/AUTH-PILOT-CHECKLIST.md` · env dry-run: `pnpm validate:auth-pilot`
+### Records editor dual-run (Wave H — stopped)
 
-**Sole authorized pilot tenant:** `om_church_46` (slug). Apply `VITE_PORTAL_AUTH_MODE=live` + `VITE_PORTAL_REQUIRE_AUTH=true` only for that tenant's deploy — defaults stay `mock` / `false`.
+Dual-run env flags (`VITE_PORTAL_RECORDS_EDITOR_*`) are **not deployed** to production. Legacy `/portal` editors remain source of truth.
 
-### Records editor dual-run (Wave H prep)
-
-| Env | Default | Meaning |
-| --- | --- | --- |
-| `VITE_PORTAL_RECORDS_EDITOR_BAPTISM` | `false` | Enable baptism editor dual-run when UI ships |
-| `VITE_PORTAL_RECORDS_EDITOR_MARRIAGE` | `false` | Enable marriage editor dual-run when UI ships |
-| `VITE_PORTAL_RECORDS_EDITOR_FUNERAL` | `false` | Enable funeral editor dual-run when UI ships |
-
-Enable **at most one** type during pilot (Baptism first). See `docs/WAVE-H-RECORDS-GATES.md` and `recordsEditorFlags.ts`.
-
-Routes: `/portal2/auth/login`, `/auth/forgot-password`, `/auth/unauthorized`, `/account`.
+See `docs/WAVE-H-RECORDS-GATES.md` and `recordsEditorFlags.ts` for historical design.
 
 ## Stack ownership
 

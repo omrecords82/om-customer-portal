@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 # Build Customer Portal for /portal2 and rsync static assets to the deploy dir.
+# STOPPED 2026-07-21: Portal2 removed from OM production — script disabled by default.
 set -euo pipefail
+
+if [[ "${PORTAL2_DEPLOY_OVERRIDE:-}" != "I_UNDERSTAND_ARCHIVED" ]]; then
+  cat >&2 <<'EOF'
+error: Portal2 deploy is STOPPED (2026-07-21).
+
+  /portal2 is no longer served on orthodoxmetrics.com.
+  Legacy /portal is unchanged. Do not rsync to /var/www/orthodoxmetrics/portal.
+
+  For emergency archive recovery only, set:
+    PORTAL2_DEPLOY_OVERRIDE=I_UNDERSTAND_ARCHIVED
+EOF
+  exit 1
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPLOY_DIR="${PORTAL_DEPLOY_DIR:-/var/www/orthodoxmetrics/portal}"
